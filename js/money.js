@@ -11,23 +11,28 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (config, errors) {
   'use strict';
 
-  const NBSP = ' ';
-  const AMOUNT_PATTERN = /^(\d{1,12})(?:\.(\d{1,2}))?$/;
+  const NBSP = '\u00A0';
+  const NUMBER_PATTERN = /^(\d+)(?:\.(\d+))?$/;
+  const MAX_RUBLE_DIGITS = 12;
+
+  function invalid(reason) {
+    return new errors.AppError('AMOUNT_INVALID', null, config.AMOUNT_MESSAGES[reason]);
+  }
 
   /**
    * Переводит ввод пользователя в копейки.
-   * Принимает «3000», «3 000», «1500,5», «99.99», «250 ₽».
-   * Бросает AMOUNT_INVALID / AMOUNT_TOO_LARGE.
+   * Принимает «3000», «3 000», «1500,5», «99.99», «250 ₽» — копейки писать не обязательно.
+   * Бросает AMOUNT_INVALID (с уточнением, что не так) или AMOUNT_TOO_LARGE.
    */
   function parseAmountToKopecks(input) {
     let text;
     if (typeof input === 'number') {
-      if (!Number.isFinite(input)) throw new errors.AppError('AMOUNT_INVALID');
+      if (!Number.isFinite(input)) throw invalid('NOT_A_NUMBER');
       text = String(input);
     } else if (typeof input === 'string') {
       text = input;
     } else {
-      throw new errors.AppError('AMOUNT_INVALID');
+      throw invalid('EMPTY');
     }
 
     const normalized = text
@@ -35,14 +40,20 @@
       .replace(/(₽|руб\.?|р\.?)$/i, '')
       .replace(',', '.');
 
-    const match = AMOUNT_PATTERN.exec(normalized);
-    if (!match) throw new errors.AppError('AMOUNT_INVALID');
+    if (!normalized) throw invalid('EMPTY');
+    if (/^[-−–]/.test(normalized)) throw invalid('NOT_POSITIVE');
+
+    const match = NUMBER_PATTERN.exec(normalized);
+    if (!match) throw invalid('NOT_A_NUMBER');
+    if (match[2] && match[2].length > 2) throw invalid('TOO_MANY_DECIMALS');
+    // Длинное число не переводим в Number (потеряется точность) — сразу «слишком большая».
+    if (match[1].replace(/^0+/, '').length > MAX_RUBLE_DIGITS) throw new errors.AppError('AMOUNT_TOO_LARGE');
 
     const rubles = Number(match[1]);
     const kopecks = Number((match[2] || '').padEnd(2, '0'));
     const total = rubles * 100 + kopecks;
 
-    if (total <= 0) throw new errors.AppError('AMOUNT_INVALID');
+    if (total <= 0) throw invalid('NOT_POSITIVE');
     if (total > config.LIMITS.MAX_AMOUNT_KOPECKS) throw new errors.AppError('AMOUNT_TOO_LARGE');
     return total;
   }
@@ -61,5 +72,14 @@
     return sign + groupThousands(String(rubles)) + fraction + NBSP + config.CURRENCY_SYMBOL;
   }
 
-  return { parseAmountToKopecks: parseAmountToKopecks, formatKopecks: formatKopecks };
+  /** Значение для поля ввода: 150050 → «1 500,50» (всегда с копейками, без знака ₽). */
+  function formatInputAmount(amount) {
+    return groupThousands(String(Math.floor(amount / 100))) + ',' + String(amount % 100).padStart(2, '0');
+  }
+
+  return {
+    parseAmountToKopecks: parseAmountToKopecks,
+    formatKopecks: formatKopecks,
+    formatInputAmount: formatInputAmount,
+  };
 });

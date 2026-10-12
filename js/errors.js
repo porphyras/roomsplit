@@ -12,17 +12,18 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (config) {
   'use strict';
 
-  function describe(code, field) {
+  /** message — необязательное уточнение текста для этого конкретного случая. */
+  function describe(code, field, message) {
     const known = config.ERRORS[code];
-    const item = { code: code, message: known ? known.message : code };
+    const item = { code: code, message: message || (known ? known.message : code) };
     const resolvedField = field || (known && known.field);
     if (resolvedField) item.field = resolvedField;
     return item;
   }
 
   class AppError extends Error {
-    constructor(code, field) {
-      const item = describe(code, field);
+    constructor(code, field, message) {
+      const item = describe(code, field, message);
       super(item.message);
       this.name = 'AppError';
       this.code = item.code;
@@ -40,8 +41,8 @@
   /** Собирает ошибки валидации и бросает их одним AppError. */
   function throwIfAny(items) {
     if (!items.length) return;
-    const error = new AppError(items[0].code, items[0].field);
-    error.errors = items.map(function (it) { return describe(it.code, it.field); });
+    const error = new AppError(items[0].code, items[0].field, items[0].message);
+    error.errors = items.map(function (it) { return describe(it.code, it.field, it.message); });
     throw error;
   }
 

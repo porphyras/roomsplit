@@ -30,6 +30,17 @@
     MAX_AMOUNT_KOPECKS: 1000000000,
   });
 
+  /**
+   * Уточнённые тексты для AMOUNT_INVALID: код по ТЗ один,
+   * но пользователю говорим, что именно не так с суммой.
+   */
+  const AMOUNT_MESSAGES = Object.freeze({
+    EMPTY: 'Введите сумму',
+    NOT_A_NUMBER: 'Введите сумму числом, например 1500 или 1500,50',
+    NOT_POSITIVE: 'Сумма должна быть больше нуля',
+    TOO_MANY_DECIMALS: 'Не больше двух знаков после запятой — это копейки',
+  });
+
   /** Сколько записей показывать на главной, чтобы экран не рос бесконечно. */
   const UI = Object.freeze({
     EXPENSES_PREVIEW: 5,
@@ -55,8 +66,8 @@
     EXPENSE_TITLE_REQUIRED: { message: 'Введите название расхода', field: 'title' },
     EXPENSE_TITLE_TOO_LONG: { message: 'Название не длиннее ' + LIMITS.TITLE_MAX_LENGTH + ' символов', field: 'title' },
     EXPENSE_NOT_FOUND: { message: 'Расход не найден — возможно, он уже удалён' },
-    AMOUNT_INVALID: { message: 'Сумма расхода должна быть больше 0, не больше двух знаков после запятой', field: 'amount' },
-    AMOUNT_TOO_LARGE: { message: 'Слишком большая сумма — проверьте, нет ли лишних нулей', field: 'amount' },
+    AMOUNT_INVALID: { message: 'Введите сумму больше нуля, например 1500 или 1500,50', field: 'amount' },
+    AMOUNT_TOO_LARGE: { message: 'Слишком большая сумма: максимум 10 000 000 ₽', field: 'amount' },
     PARTICIPANTS_EMPTY: { message: 'Отметьте хотя бы одного участника', field: 'participantIds' },
     PAYER_NOT_IN_PARTICIPANTS: { message: 'Плательщик должен быть среди участников расхода', field: 'participantIds' },
     INVALID_EXPENSE_DATA: { message: 'Данные расхода повреждены — расчёт долгов невозможен' },
@@ -76,6 +87,7 @@
     TASK_STATUS_LABELS: TASK_STATUS_LABELS,
     LIMITS: LIMITS,
     UI: UI,
+    AMOUNT_MESSAGES: AMOUNT_MESSAGES,
     ERRORS: ERRORS,
   });
 });

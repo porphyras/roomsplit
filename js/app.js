@@ -649,6 +649,15 @@
     focusFirst('#expense-title');
   }
 
+  // Копейки писать не обязательно: при выходе из поля «1500.5» превращается в «1 500,50».
+  $('#expense-amount').addEventListener('blur', function (event) {
+    try {
+      event.target.value = money.formatInputAmount(money.parseAmountToKopecks(event.target.value));
+    } catch (e) {
+      // Неверную сумму не трогаем — ошибку покажет сохранение.
+    }
+  });
+
   $('#expense-form').addEventListener('input', updateExpensePreview);
   $('#expense-form').addEventListener('change', updateExpensePreview);
 
