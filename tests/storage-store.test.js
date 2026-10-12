@@ -52,7 +52,12 @@ test('validateState ловит нарушения схемы и ссылок', (
   assert.deepEqual(validateState(good), good);
 
   const mutations = [
-    (s) => { s.schemaVersion = 2; },
+    (s) => { s.schemaVersion = 99; },
+    (s) => { delete s.payments; },
+    (s) => { s.payments[0].toId = s.payments[0].fromId; },
+    (s) => { s.payments[0].fromId = 'ghost'; },
+    (s) => { s.payments[0].amountKopecks = -1; },
+    (s) => { s.payments.push(Object.assign({}, s.payments[0])); },
     (s) => { s.residents = null; },
     (s) => { s.residents.push({ id: s.residents[0].id, name: 'Клон' }); },
     (s) => { s.residents[0].name = '  '; },
@@ -162,8 +167,8 @@ test('store: демо-данные валидны и дают ожидаемые
   store.loadDemo();
   const state = createStore({ storage }).getState();
   assert.deepEqual(validateState(state), state);
-  // Артём +1475, Максим −400, Никита −1075
-  assert.deepEqual(calculateDebts(state.expenses, state.residents).map((d) => d.amountKopecks), [40000, 107500]);
+  // Артём +1475, Максим −400, Никита −1075; Никита уже вернул 500 → осталось 575
+  assert.deepEqual(calculateDebts(state.expenses, state.residents, state.payments).map((d) => d.amountKopecks), [40000, 57500]);
 });
 
 test('store: getState отдаёт копию, а не внутреннее состояние', () => {
@@ -180,4 +185,53 @@ test('store: reset очищает данные', () => {
   store.reset();
   assert.equal(storage.getItem(KEY), null);
   assert.deepEqual(store.getState(), createDefaultState());
+});
+
+test('миграция: данные v1 (без погашений) загружаются и обновляются до v2', () => {
+  const v1 = buildDemoState();
+  v1.schemaVersion = 1;
+  delete v1.payments;
+  const storage = createMemoryStorage({ [KEY]: JSON.stringify(v1) });
+  const result = loadState(storage);
+  assert.equal(result.error, null);
+  assert.equal(result.state.schemaVersion, 2);
+  assert.deepEqual(result.state.payments, []);
+  assert.equal(result.state.expenses.length, 3, 'расходы на месте');
+
+  const store = createStore({ storage });
+  store.addResident({ name: 'Лиза' });
+  assert.equal(JSON.parse(storage.getItem(KEY)).schemaVersion, 2, 'после сохранения уже v2');
+});
+
+test('store: погашение долга частями и отмена погашения', () => {
+  const storage = createMemoryStorage();
+  const store = createStore({ storage });
+  const a = store.addResident({ name: 'Артём' });
+  const m = store.addResident({ name: 'Максим' });
+  store.createExpense({ title: 'Продукты', amountKopecks: 200000, payerId: a.id, participantIds: [a.id, m.id] });
+
+  const debtNow = () => store.getSummary().debts.map((d) => [d.debtorName, d.creditorName, d.amountKopecks]);
+  assert.deepEqual(debtNow(), [['Максим', 'Артём', 100000]]);
+
+  const part = store.createPayment({ fromId: m.id, toId: a.id, amountKopecks: 40000 });
+  assert.equal(part.remainingKopecks, 60000);
+  assert.deepEqual(debtNow(), [['Максим', 'Артём', 60000]]);
+
+  assert.throws(() => store.createPayment({ fromId: m.id, toId: a.id, amountKopecks: 60001 }), { code: 'PAYMENT_EXCEEDS_DEBT', field: 'amount' });
+  assert.throws(() => store.createPayment({ fromId: a.id, toId: m.id, amountKopecks: 100 }), { code: 'DEBT_NOT_FOUND' });
+
+  const rest = store.createPayment({ fromId: m.id, toId: a.id, amountKopecks: 60000 });
+  assert.equal(rest.remainingKopecks, 0);
+  assert.deepEqual(debtNow(), []);
+  assert.deepEqual(store.getSummary().payments.map((p) => [p.fromName, p.toName, p.amountKopecks]), [
+    ['Максим', 'Артём', 60000],
+    ['Максим', 'Артём', 40000],
+  ]);
+
+  // «Перезагрузка» и удаление ошибочного погашения — долг возвращается.
+  const reloaded = createStore({ storage });
+  reloaded.deletePayment(rest.payment.id);
+  assert.deepEqual(reloaded.getSummary().debts.map((d) => d.amountKopecks), [60000]);
+  assert.throws(() => reloaded.deletePayment(rest.payment.id), { code: 'PAYMENT_NOT_FOUND' });
+  assert.throws(() => reloaded.removeResident(m.id), { code: 'RESIDENT_IN_USE' });
 });

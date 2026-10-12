@@ -98,6 +98,18 @@
               <h2 id="debts-title" class="card__title">Долги</h2>
               <ul id="debt-list" class="list"></ul>
               <p id="debt-empty" class="empty">Долгов нет — все в расчёте.</p>
+
+              <div id="payments-block" class="history" hidden>
+                <button id="payments-toggle" type="button" class="history__toggle" aria-expanded="false" aria-controls="payments-panel">
+                  <span>История погашений</span>
+                  <span id="payments-count" class="count"></span>
+                  <svg class="history__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div id="payments-panel" hidden>
+                  <ul id="payment-list" class="list"></ul>
+                  <button id="payments-more" type="button" class="show-more" hidden></button>
+                </div>
+              </div>
             </section>
 
             <section class="card" aria-labelledby="expenses-title">
@@ -116,7 +128,7 @@
                 <button type="submit" class="btn btn--secondary">Добавить</button>
                 <p id="main-name-error" class="field-error" data-error-for="name"></p>
               </form>
-              <p class="hint">Удалить можно только жильца без обязанностей и расходов.</p>
+              <p class="hint">Удалить можно только жильца без обязанностей, расходов и погашений.</p>
             </section>
           </div>
         </div>
@@ -172,7 +184,7 @@
           <div class="field">
             <label for="expense-amount">Сумма</label>
             <div class="input-suffix">
-              <input id="expense-amount" name="amount" type="text" inputmode="decimal" placeholder="3000" maxlength="20" aria-describedby="expense-amount-error">
+              <input id="expense-amount" name="amount" type="text" inputmode="decimal" placeholder="3000" maxlength="20" data-amount aria-describedby="expense-amount-error">
               <span aria-hidden="true">₽</span>
             </div>
             <p id="expense-amount-error" class="field-error" data-error-for="amount"></p>
@@ -199,6 +211,32 @@
           </div>
         </form>
       </section>
+
+      <!-- Погашение долга (сверх ТЗ) -->
+      <section id="screen-payment" class="screen" hidden aria-labelledby="payment-form-title">
+        <form id="payment-form" class="card card--narrow form" novalidate autocomplete="off">
+          <h1 id="payment-form-title" class="screen__title" tabindex="-1">Погашение долга</h1>
+          <p id="payment-who" class="payment-who"></p>
+
+          <div class="field">
+            <label for="payment-amount">Сколько вернули</label>
+            <div class="input-suffix">
+              <input id="payment-amount" name="amount" type="text" inputmode="decimal" maxlength="20" data-amount aria-describedby="payment-amount-error payment-hint">
+              <span aria-hidden="true">₽</span>
+            </div>
+            <p id="payment-amount-error" class="field-error" data-error-for="amount"></p>
+            <p id="payment-hint" class="hint">Вернули не всё — уменьшите сумму, остаток долга сохранится.</p>
+          </div>
+
+          <p id="payment-preview" class="preview" aria-live="polite"></p>
+          <p class="field-error form-error" data-error-for="form"></p>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary">Погасить</button>
+            <button type="button" class="btn btn--ghost" data-action="cancel">Отмена</button>
+          </div>
+        </form>
+      </section>
     </main>
 
     <footer class="footer">
@@ -219,6 +257,7 @@
   <script src="js/resident-service.js"></script>
   <script src="js/task-service.js"></script>
   <script src="js/expense-service.js"></script>
+  <script src="js/payment-service.js"></script>
   <script src="js/summary-service.js"></script>
   <script src="js/demo-data.js"></script>
   <script src="js/store.js"></script>

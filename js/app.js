@@ -11,8 +11,8 @@
   const money = RS.money;
   const errors = RS.errors;
 
-  const SCREENS = ['loading', 'setup', 'main', 'task', 'expense'];
-  const FORM_SCREENS = ['task', 'expense'];
+  const SCREENS = ['loading', 'setup', 'main', 'task', 'expense', 'payment'];
+  const FORM_SCREENS = ['task', 'expense', 'payment'];
 
   const ICONS = {
     edit: 'M4 20h4L19 9l-4-4L4 16v4zm10.5-13.5 3 3',
@@ -30,7 +30,11 @@
     showDone: false,
     doneLimit: config.UI.DONE_TASKS_PAGE,
     showAllExpenses: false,
+    showPayments: false,
+    paymentsLimit: config.UI.PAYMENTS_PAGE,
   };
+
+  let payingDebt = null;
 
   const dateFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
@@ -420,10 +424,69 @@
           ]),
         ]),
         el('div', { className: 'list__amount', text: money.formatKopecks(debt.amountKopecks) }),
+        el('button', {
+          type: 'button',
+          className: 'btn btn--small btn--secondary',
+          text: 'Погасить',
+          'aria-label': 'Погасить долг: ' + debt.debtorName + ' → ' + debt.creditorName,
+          onclick: function () { openPaymentForm(debt); },
+        }),
       ]));
     });
     $('#debt-empty').hidden = debts.length > 0;
   }
+
+  /** История погашений: свёрнута, новые сверху; ошибочное погашение можно удалить. */
+  function renderPayments(payments) {
+    $('#payments-block').hidden = payments.length === 0;
+    $('#payments-count').textContent = String(payments.length);
+    $('#payments-toggle').setAttribute('aria-expanded', String(view.showPayments));
+    $('#payments-panel').hidden = !view.showPayments;
+
+    const list = $('#payment-list');
+    list.textContent = '';
+    if (!view.showPayments) return;
+
+    payments.slice(0, view.paymentsLimit).forEach(function (payment) {
+      const date = formatDate(payment.createdAt);
+      const label = payment.fromName + ' → ' + payment.toName + ', ' + money.formatKopecks(payment.amountKopecks);
+      list.appendChild(el('li', { className: 'list__item' }, [
+        el('div', { className: 'list__body' }, [
+          el('div', { className: 'debt-names' }, [
+            el('span', { text: payment.fromName }),
+            el('span', { className: 'debt-arrow', text: '→', 'aria-hidden': 'true' }),
+            el('span', { className: 'visually-hidden', text: ' вернул(а) ' }),
+            el('span', { text: payment.toName }),
+          ]),
+          date ? el('div', { className: 'list__meta nowrap', text: date }) : null,
+        ]),
+        el('div', { className: 'list__amount', text: money.formatKopecks(payment.amountKopecks) }),
+        iconButton('trash', 'Удалить погашение: ' + label, function () {
+          if (!window.confirm('Удалить погашение ' + label + '? Долг снова увеличится на эту сумму.')) return;
+          if (attempt(function () { store.deletePayment(payment.id); })) {
+            renderMain();
+            showToast('Погашение удалено, долг пересчитан');
+          }
+        }, 'icon-btn--danger'),
+      ]));
+    });
+
+    const rest = payments.length - view.paymentsLimit;
+    const more = $('#payments-more');
+    more.hidden = rest <= 0;
+    if (rest > 0) more.textContent = 'Показать ещё ' + Math.min(rest, config.UI.PAYMENTS_PAGE) + ' из ' + rest;
+  }
+
+  $('#payments-toggle').addEventListener('click', function () {
+    view.showPayments = !view.showPayments;
+    view.paymentsLimit = config.UI.PAYMENTS_PAGE;
+    renderMain();
+  });
+
+  $('#payments-more').addEventListener('click', function () {
+    view.paymentsLimit += config.UI.PAYMENTS_PAGE;
+    renderMain();
+  });
 
   /** Последние расходы; полный список — по кнопке «Показать все». */
   function renderExpenses(expenses) {
@@ -505,6 +568,7 @@
     renderTasks(summary.pendingTasks, summary.completedTasks.length);
     renderDone(summary.completedTasks);
     renderDebts(summary.debts);
+    renderPayments(summary.payments);
     renderExpenses(summary.expenses);
     renderResidents(summary.residents);
     setCount('#tasks-title', summary.totals.pendingTasks);
@@ -650,12 +714,14 @@
   }
 
   // Копейки писать не обязательно: при выходе из поля «1500.5» превращается в «1 500,50».
-  $('#expense-amount').addEventListener('blur', function (event) {
-    try {
-      event.target.value = money.formatInputAmount(money.parseAmountToKopecks(event.target.value));
-    } catch (e) {
-      // Неверную сумму не трогаем — ошибку покажет сохранение.
-    }
+  document.querySelectorAll('[data-amount]').forEach(function (input) {
+    input.addEventListener('blur', function () {
+      try {
+        input.value = money.formatInputAmount(money.parseAmountToKopecks(input.value));
+      } catch (e) {
+        // Неверную сумму не трогаем — ошибку покажет сохранение.
+      }
+    });
   });
 
   $('#expense-form').addEventListener('input', updateExpensePreview);
@@ -713,6 +779,72 @@
     button.addEventListener('click', closeForm);
   });
 
+  // ---------- Погашение долга (сверх ТЗ) ----------
+
+  function openPaymentForm(debt) {
+    const form = $('#payment-form');
+    payingDebt = debt;
+    form.reset();
+    clearFormErrors(form);
+
+    const who = $('#payment-who');
+    who.textContent = '';
+    who.appendChild(el('strong', { text: debt.debtorName + ' → ' + debt.creditorName }));
+    who.appendChild(el('br'));
+    who.appendChild(document.createTextNode('Долг сейчас: ' + money.formatKopecks(debt.amountKopecks)));
+
+    form.elements.amount.value = money.formatInputAmount(debt.amountKopecks);
+    updatePaymentPreview();
+    openForm('payment');
+    focusFirst('#payment-amount');
+    form.elements.amount.select();
+  }
+
+  function updatePaymentPreview() {
+    const preview = $('#payment-preview');
+    if (!payingDebt) return;
+    let amount;
+    try {
+      amount = money.parseAmountToKopecks($('#payment-amount').value);
+    } catch (e) {
+      preview.textContent = '';
+      return;
+    }
+    if (amount > payingDebt.amountKopecks) {
+      preview.textContent = '';
+    } else if (amount === payingDebt.amountKopecks) {
+      preview.textContent = 'Долг будет закрыт полностью.';
+    } else {
+      preview.textContent = 'Останется долг ' + money.formatKopecks(payingDebt.amountKopecks - amount) + '.';
+    }
+  }
+
+  $('#payment-amount').addEventListener('input', updatePaymentPreview);
+
+  $('#payment-form').addEventListener('submit', function (event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const debt = payingDebt;
+    let result;
+    const ok = submitWith(form, function () {
+      const amountKopecks = money.parseAmountToKopecks(form.elements.amount.value);
+      result = store.createPayment({ fromId: debt.debtorId, toId: debt.creditorId, amountKopecks: amountKopecks });
+    });
+    if (!ok) return;
+
+    const paid = money.formatKopecks(result.payment.amountKopecks);
+    const text = result.remainingKopecks
+      ? 'Погашено ' + paid + ', осталось ' + money.formatKopecks(result.remainingKopecks)
+      : 'Долг погашен полностью';
+    showToast(text, false, {
+      label: 'Отменить',
+      run: function () {
+        if (attempt(function () { store.deletePayment(result.payment.id); })) renderMain();
+      },
+    });
+    closeForm();
+  });
+
   // ---------- Сброс данных ----------
 
   $('#reset-data').addEventListener('click', function () {
@@ -721,6 +853,8 @@
       view.showDone = false;
       view.doneLimit = config.UI.DONE_TASKS_PAGE;
       view.showAllExpenses = false;
+      view.showPayments = false;
+      view.paymentsLimit = config.UI.PAYMENTS_PAGE;
       if (store.getMode() !== 'memory') hideBanner();
       if (history.state && history.state.roomsplit) history.replaceState(null, '');
       goSetup();

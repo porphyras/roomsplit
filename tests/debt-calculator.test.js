@@ -164,3 +164,26 @@ test('повреждённый расход → INVALID_EXPENSE_DATA', () => {
     assert.throws(() => calculateDebts([e], RESIDENTS), { code: 'INVALID_EXPENSE_DATA' });
   });
 });
+
+test('погашение уменьшает долг, полное — закрывает его', () => {
+  const expenses = [expense('e1', 300000, ARTEM.id, ALL)];
+  const pay = (from, to, amountKopecks) => ({ id: 'p' + amountKopecks, fromId: from, toId: to, amountKopecks });
+  assert.deepEqual(calculateDebts(expenses, RESIDENTS, [pay(MAXIM.id, ARTEM.id, 40000)]), [
+    { debtorId: MAXIM.id, creditorId: ARTEM.id, amountKopecks: 60000 },
+    { debtorId: NIKITA.id, creditorId: ARTEM.id, amountKopecks: 100000 },
+  ]);
+  assert.deepEqual(calculateDebts(expenses, RESIDENTS, [pay(MAXIM.id, ARTEM.id, 100000)]), [
+    { debtorId: NIKITA.id, creditorId: ARTEM.id, amountKopecks: 100000 },
+  ]);
+  // Без третьего аргумента — как раньше (совместимость с контрактом ТЗ).
+  assert.equal(calculateDebts(expenses, RESIDENTS).length, 2);
+});
+
+test('повреждённое погашение → INVALID_EXPENSE_DATA', () => {
+  const bad = [
+    { id: 'p', fromId: MAXIM.id, toId: MAXIM.id, amountKopecks: 100 },
+    { id: 'p', fromId: 'ghost', toId: ARTEM.id, amountKopecks: 100 },
+    { id: 'p', fromId: MAXIM.id, toId: ARTEM.id, amountKopecks: 0 },
+  ];
+  bad.forEach((p) => assert.throws(() => calculateDebts([], RESIDENTS, [p]), { code: 'INVALID_EXPENSE_DATA' }));
+});

@@ -42,7 +42,8 @@
     const inUse = state.tasks.some(function (t) { return t.assigneeId === residentId; })
       || state.expenses.some(function (e) {
         return e.payerId === residentId || e.participantIds.indexOf(residentId) !== -1;
-      });
+      })
+      || state.payments.some(function (p) { return p.fromId === residentId || p.toId === residentId; });
     if (inUse) throw new errors.AppError('RESIDENT_IN_USE');
 
     return {

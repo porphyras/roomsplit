@@ -13,6 +13,7 @@
       require('./resident-service.js'),
       require('./task-service.js'),
       require('./expense-service.js'),
+      require('./payment-service.js'),
       require('./summary-service.js'),
       require('./demo-data.js')
     );
@@ -20,12 +21,12 @@
     const RS = root.RoomSplit;
     RS.store = factory(
       RS.errors, RS.state, RS.storage, RS.debtCalculator,
-      RS.residentService, RS.taskService, RS.expenseService, RS.summaryService, RS.demoData
+      RS.residentService, RS.taskService, RS.expenseService, RS.paymentService, RS.summaryService, RS.demoData
     );
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (
   errors, stateModule, storageModule, debtCalculator,
-  residentService, taskService, expenseService, summaryService, demoData
+  residentService, taskService, expenseService, paymentService, summaryService, demoData
 ) {
   'use strict';
 
@@ -94,10 +95,20 @@
       /** Возвращает расход и пересчитанный список долгов (ТЗ 3.1). */
       createExpense: function (payload) {
         const expense = run(expenseService.createExpense(state, payload)).expense;
-        return { expense: expense, debts: debtCalculator.calculateDebts(state.expenses, state.residents) };
+        return { expense: expense, debts: debtCalculator.calculateDebts(state.expenses, state.residents, state.payments) };
       },
       deleteExpense: function (id) {
         run(expenseService.deleteExpense(state, id));
+        return { success: true };
+      },
+
+      /** Погашение долга (сверх ТЗ): { payment, remainingKopecks }. */
+      createPayment: function (payload) {
+        const result = run(paymentService.createPayment(state, payload));
+        return { payment: result.payment, remainingKopecks: result.remainingKopecks };
+      },
+      deletePayment: function (id) {
+        run(paymentService.deletePayment(state, id));
         return { success: true };
       },
 

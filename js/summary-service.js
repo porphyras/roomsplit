@@ -18,7 +18,7 @@
   }
 
   /**
-   * getSummary(state) → { tasks, pendingTasks, completedTasks, debts, expenses, residents, totals }
+   * getSummary(state) → { tasks, pendingTasks, completedTasks, debts, expenses, payments, residents, totals }
    * tasks — все задачи (сначала невыполненные), pendingTasks — для главного экрана,
    * completedTasks — история выполненных, новые сверху.
    */
@@ -36,7 +36,7 @@
       return doneAt(a) < doneAt(b) ? 1 : doneAt(a) > doneAt(b) ? -1 : 0;
     });
 
-    const debts = debtCalculator.calculateDebts(state.expenses, state.residents).map(function (debt) {
+    const debts = debtCalculator.calculateDebts(state.expenses, state.residents, state.payments).map(function (debt) {
       return Object.assign({}, debt, {
         debtorName: nameOf(state, debt.debtorId),
         creditorName: nameOf(state, debt.creditorId),
@@ -51,6 +51,14 @@
       });
     });
 
+    // История погашений: новые сверху.
+    const payments = state.payments.slice().reverse().map(function (payment) {
+      return Object.assign({}, payment, {
+        fromName: nameOf(state, payment.fromId),
+        toName: nameOf(state, payment.toId),
+      });
+    });
+
     const totalExpensesKopecks = state.expenses.reduce(function (sum, e) { return sum + e.amountKopecks; }, 0);
 
     return {
@@ -60,6 +68,7 @@
       completedTasks: history,
       debts: debts,
       expenses: expenses,
+      payments: payments,
       totals: {
         pendingTasks: pending.length,
         completedTasks: completed.length,

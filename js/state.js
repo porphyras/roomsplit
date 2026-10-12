@@ -17,6 +17,7 @@
       residents: [],
       tasks: [],
       expenses: [],
+      payments: [],
     };
   }
 
@@ -46,8 +47,13 @@
    * Возвращает «чистую» копию только с известными полями, иначе бросает STATE_INVALID.
    */
   function validateState(raw) {
-    if (!isPlainObject(raw) || raw.schemaVersion !== config.SCHEMA_VERSION) invalid();
+    if (!isPlainObject(raw)) invalid();
+    // Миграция: в v1 погашений не было — считаем, что список пуст.
+    const isV1 = raw.schemaVersion === 1;
+    if (!isV1 && raw.schemaVersion !== config.SCHEMA_VERSION) invalid();
     if (!Array.isArray(raw.residents) || !Array.isArray(raw.tasks) || !Array.isArray(raw.expenses)) invalid();
+    const rawPayments = isV1 ? [] : raw.payments;
+    if (!Array.isArray(rawPayments)) invalid();
 
     const residentIds = new Set();
     const residents = raw.residents.map(function (r) {
@@ -90,11 +96,23 @@
       return expense;
     });
 
+    const paymentIds = new Set();
+    const payments = rawPayments.map(function (p) {
+      if (!isPlainObject(p) || !isNonEmptyString(p.id) || paymentIds.has(p.id)) invalid();
+      if (!residentIds.has(p.fromId) || !residentIds.has(p.toId) || p.fromId === p.toId) invalid();
+      if (!Number.isSafeInteger(p.amountKopecks) || p.amountKopecks <= 0) invalid();
+      paymentIds.add(p.id);
+      const payment = { id: p.id, fromId: p.fromId, toId: p.toId, amountKopecks: p.amountKopecks };
+      if (typeof p.createdAt === 'string') payment.createdAt = p.createdAt;
+      return payment;
+    });
+
     return {
       schemaVersion: config.SCHEMA_VERSION,
       residents: residents,
       tasks: tasks,
       expenses: expenses,
+      payments: payments,
     };
   }
 

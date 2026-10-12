@@ -45,6 +45,7 @@
   const UI = Object.freeze({
     EXPENSES_PREVIEW: 5,
     DONE_TASKS_PAGE: 10,
+    PAYMENTS_PAGE: 10,
   });
 
   /**
@@ -57,7 +58,7 @@
     RESIDENT_NAME_DUPLICATE: { message: 'Жилец с таким именем уже есть', field: 'name' },
     RESIDENT_NAME_TOO_LONG: { message: 'Имя не длиннее ' + LIMITS.NAME_MAX_LENGTH + ' символов', field: 'name' },
     RESIDENTS_LIMIT: { message: 'Можно добавить не больше ' + LIMITS.MAX_RESIDENTS + ' жильцов', field: 'name' },
-    RESIDENT_IN_USE: { message: 'Нельзя удалить жильца, пока у него есть обязанности или расходы' },
+    RESIDENT_IN_USE: { message: 'Нельзя удалить жильца, пока у него есть обязанности, расходы или погашения' },
     TASK_TITLE_REQUIRED: { message: 'Введите название обязанности', field: 'title' },
     TASK_TITLE_TOO_LONG: { message: 'Название не длиннее ' + LIMITS.TITLE_MAX_LENGTH + ' символов', field: 'title' },
     TASK_NOT_FOUND: { message: 'Обязанность не найдена — возможно, она уже удалена' },
@@ -66,6 +67,9 @@
     EXPENSE_TITLE_REQUIRED: { message: 'Введите название расхода', field: 'title' },
     EXPENSE_TITLE_TOO_LONG: { message: 'Название не длиннее ' + LIMITS.TITLE_MAX_LENGTH + ' символов', field: 'title' },
     EXPENSE_NOT_FOUND: { message: 'Расход не найден — возможно, он уже удалён' },
+    DEBT_NOT_FOUND: { message: 'Этого долга уже нет — возможно, он погашен или пересчитан' },
+    PAYMENT_EXCEEDS_DEBT: { message: 'Нельзя вернуть больше, чем долг', field: 'amount' },
+    PAYMENT_NOT_FOUND: { message: 'Погашение не найдено — возможно, оно уже удалено' },
     AMOUNT_INVALID: { message: 'Введите сумму больше нуля, например 1500 или 1500,50', field: 'amount' },
     AMOUNT_TOO_LARGE: { message: 'Слишком большая сумма: максимум 10 000 000 ₽', field: 'amount' },
     PARTICIPANTS_EMPTY: { message: 'Отметьте хотя бы одного участника', field: 'participantIds' },
@@ -81,7 +85,8 @@
     APP_NAME: 'RoomSplit',
     STORAGE_KEY: 'roomsplit_state_v1',
     BACKUP_KEY_PREFIX: 'roomsplit_state_v1_backup_',
-    SCHEMA_VERSION: 1,
+    // v2: добавлен список погашений payments. Данные v1 обновляются автоматически.
+    SCHEMA_VERSION: 2,
     CURRENCY_SYMBOL: '₽',
     TASK_STATUS: TASK_STATUS,
     TASK_STATUS_LABELS: TASK_STATUS_LABELS,

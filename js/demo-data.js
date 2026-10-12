@@ -55,6 +55,10 @@
           createdAt: at(30),
         },
       ],
+      payments: [
+        // Никита уже вернул Артёму часть долга.
+        { id: 'payment-demo-1', fromId: 'resident-demo-nikita', toId: 'resident-demo-artem', amountKopecks: 50000, createdAt: at(10) },
+      ],
     };
   }
 

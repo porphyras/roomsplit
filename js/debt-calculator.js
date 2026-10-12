@@ -6,9 +6,10 @@
  *    остаток копеек раздаётся по одной, начиная с первого в participantIds.
  * 3. Плательщику +amount, каждому участнику −доля.
  *    Плюс — ему должны, минус — он должен.
- * 4. Должники и кредиторы попарно гасят балансы, пока все не станут нулём.
+ * 4. Погашение долга (сверх ТЗ) — обратный перевод: вернувшему +сумма, получившему −сумма.
+ * 5. Должники и кредиторы попарно гасят балансы, пока все не станут нулём.
  *
- * Долги нигде не хранятся: источник истины — расходы.
+ * Долги нигде не хранятся: источник истины — расходы и погашения.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -43,8 +44,19 @@
     if (!valid) throw new errors.AppError('INVALID_EXPENSE_DATA');
   }
 
-  /** { [residentId]: баланс в копейках } по всем расходам. */
-  function calculateBalances(expenses, residents) {
+  function assertValidPayment(payment, balances) {
+    const has = function (id) { return Object.prototype.hasOwnProperty.call(balances, id); };
+    const valid = payment
+      && Number.isSafeInteger(payment.amountKopecks)
+      && payment.amountKopecks > 0
+      && has(payment.fromId)
+      && has(payment.toId)
+      && payment.fromId !== payment.toId;
+    if (!valid) throw new errors.AppError('INVALID_EXPENSE_DATA');
+  }
+
+  /** { [residentId]: баланс в копейках } по всем расходам и погашениям. */
+  function calculateBalances(expenses, residents, payments) {
     const balances = {};
     residents.forEach(function (r) { balances[r.id] = 0; });
 
@@ -56,12 +68,21 @@
       });
     });
 
+    (payments || []).forEach(function (payment) {
+      assertValidPayment(payment, balances);
+      balances[payment.fromId] += payment.amountKopecks;
+      balances[payment.toId] -= payment.amountKopecks;
+    });
+
     return balances;
   }
 
-  /** Debt[] = [{ debtorId, creditorId, amountKopecks }] без нулевых и «самому себе». */
-  function calculateDebts(expenses, residents) {
-    const balances = calculateBalances(expenses, residents);
+  /**
+   * Debt[] = [{ debtorId, creditorId, amountKopecks }] без нулевых и «самому себе».
+   * payments — необязательный список погашений.
+   */
+  function calculateDebts(expenses, residents, payments) {
+    const balances = calculateBalances(expenses, residents, payments);
 
     // Порядок — как в списке жильцов, чтобы результат был предсказуемым.
     const debtors = [];
