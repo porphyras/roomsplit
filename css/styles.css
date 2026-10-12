@@ -58,6 +58,8 @@ body {
   color: var(--text);
   font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Длинные слова без пробелов («ЖЖЖЖЖ…») переносятся, а не растягивают страницу. */
+  overflow-wrap: break-word;
 }
 
 button, input, select { font: inherit; color: inherit; }
@@ -302,6 +304,7 @@ main { flex: 1; }
   background: var(--surface-2);
   border: 1px solid var(--border);
 }
+.payment-who { overflow-wrap: anywhere; }
 .payment-who strong { font-size: 18px; }
 
 .link-btn {
@@ -412,7 +415,9 @@ select {
   cursor: pointer;
   user-select: none;
 }
-.check input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+.check { max-width: 100%; }
+.check span { min-width: 0; overflow-wrap: anywhere; }
+.check input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
 .check:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
 .check:has(input:focus-visible) { box-shadow: var(--focus); }
 
@@ -461,6 +466,12 @@ select {
 .list__meta { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
 .list__amount { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
+/* Долги и погашения: при длинных именах сумма и кнопка переносятся на вторую строку,
+   а не сжимают имена в узкий столбик. */
+.list__item--wrap { flex-wrap: wrap; }
+.list__item--wrap .list__body { flex: 1 1 auto; }
+.list__item--wrap .list__amount { margin-left: auto; }
+
 .task-check {
   flex: none;
   width: 22px;
@@ -487,6 +498,10 @@ select {
 
 .badge {
   display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
   font-size: 12px;
   font-weight: 600;
   padding: 1px 8px;
@@ -552,6 +567,7 @@ select {
 }
 .toast--error { background: var(--danger); color: #fff; }
 .toast { display: flex; align-items: center; gap: 14px; }
+.toast > span { min-width: 0; overflow-wrap: anywhere; }
 .toast__action {
   flex: none;
   background: none;

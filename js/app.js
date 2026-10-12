@@ -253,12 +253,15 @@
     history.pushState({ roomsplit: name }, '');
   }
 
+  /**
+   * Сразу показываем сводку, а запись формы убираем из истории.
+   * Порядок важен: если закрывать форму только через history.back(), то двойной клик
+   * по «Сохранить» успевает сохранить дубль и сделать второй «Назад» — уводя со страницы.
+   */
   function closeForm() {
-    if (history.state && history.state.roomsplit === currentScreen) {
-      history.back(); // popstate вернёт на сводку
-    } else {
-      goMain(true);
-    }
+    const formInHistory = history.state && history.state.roomsplit === currentScreen;
+    goMain(true);
+    if (formInHistory) history.back(); // popstate увидит, что форма уже закрыта, и ничего не сделает
   }
 
   window.addEventListener('popstate', function () {
@@ -414,7 +417,7 @@
     const list = $('#debt-list');
     list.textContent = '';
     debts.forEach(function (debt) {
-      list.appendChild(el('li', { className: 'list__item' }, [
+      list.appendChild(el('li', { className: 'list__item list__item--wrap' }, [
         el('div', { className: 'list__body' }, [
           el('div', { className: 'debt-names' }, [
             el('span', { text: debt.debtorName }),
@@ -450,7 +453,7 @@
     payments.slice(0, view.paymentsLimit).forEach(function (payment) {
       const date = formatDate(payment.createdAt);
       const label = payment.fromName + ' → ' + payment.toName + ', ' + money.formatKopecks(payment.amountKopecks);
-      list.appendChild(el('li', { className: 'list__item' }, [
+      list.appendChild(el('li', { className: 'list__item list__item--wrap' }, [
         el('div', { className: 'list__body' }, [
           el('div', { className: 'debt-names' }, [
             el('span', { text: payment.fromName }),
@@ -626,6 +629,7 @@
 
   $('#task-form').addEventListener('submit', function (event) {
     event.preventDefault();
+    if (currentScreen !== 'task') return; // повторная отправка уже закрытой формы
     const form = event.currentTarget;
     const payload = {
       title: form.elements.title.value,
@@ -643,7 +647,7 @@
   });
 
   $('#task-delete').addEventListener('click', function () {
-    if (!editingTaskId) return;
+    if (!editingTaskId || currentScreen !== 'task') return;
     const form = $('#task-form');
     if (!window.confirm('Удалить обязанность «' + form.elements.title.value.trim() + '»?')) return;
     const ok = submitWith(form, function () { store.deleteTask(editingTaskId); });
@@ -743,6 +747,7 @@
 
   $('#expense-form').addEventListener('submit', function (event) {
     event.preventDefault();
+    if (currentScreen !== 'expense') return; // повторная отправка уже закрытой формы
     const form = event.currentTarget;
     let result;
     const ok = submitWith(form, function () {
@@ -823,6 +828,7 @@
 
   $('#payment-form').addEventListener('submit', function (event) {
     event.preventDefault();
+    if (currentScreen !== 'payment') return; // повторная отправка уже закрытой формы
     const form = event.currentTarget;
     const debt = payingDebt;
     let result;
@@ -860,6 +866,29 @@
       goSetup();
       showToast('Данные удалены');
     }
+  });
+
+  // ---------- Другая вкладка изменила данные ----------
+
+  function refreshAfterExternalChange() {
+    if (!store.reload()) return;
+    const hasResidents = store.getState().residents.length > 0;
+    if (currentScreen === 'main') {
+      if (hasResidents) renderMain();
+      else goSetup();
+    } else if (currentScreen === 'setup') {
+      renderSetup();
+    }
+    // На формах ничего не трогаем: при сохранении данные всё равно проверяются по свежей версии.
+  }
+
+  window.addEventListener('storage', function (event) {
+    if (event.key === null || event.key === config.STORAGE_KEY) refreshAfterExternalChange();
+  });
+
+  // Возврат на страницу кнопкой «Назад» из другого сайта (страница из кэша браузера).
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted && store) refreshAfterExternalChange();
   });
 
   // ---------- Запуск ----------

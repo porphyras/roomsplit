@@ -235,3 +235,28 @@ test('store: погашение долга частями и отмена пог
   assert.throws(() => reloaded.deletePayment(rest.payment.id), { code: 'PAYMENT_NOT_FOUND' });
   assert.throws(() => reloaded.removeResident(m.id), { code: 'RESIDENT_IN_USE' });
 });
+
+test('две вкладки: устаревшая копия не затирает изменения другой вкладки', () => {
+  const storage = createMemoryStorage();
+  const tab1 = createStore({ storage });
+  tab1.loadDemo();
+  const tab2 = createStore({ storage }); // открыта с теми же данными
+
+  const artem = tab1.getState().residents[0];
+  tab1.createExpense({ title: 'Из вкладки 1', amountKopecks: 10000, payerId: artem.id, participantIds: [artem.id] });
+  tab2.createTask({ title: 'Из вкладки 2', assigneeId: artem.id });
+
+  const saved = JSON.parse(storage.getItem(KEY));
+  assert.ok(saved.expenses.some((e) => e.title === 'Из вкладки 1'), 'расход первой вкладки сохранился');
+  assert.ok(saved.tasks.some((t) => t.title === 'Из вкладки 2'), 'задача второй вкладки сохранилась');
+
+  // Вкладка 1 узнаёт об изменениях второй.
+  assert.equal(tab1.reload(), true);
+  assert.ok(tab1.getState().tasks.some((t) => t.title === 'Из вкладки 2'));
+  assert.equal(tab1.reload(), false, 'повторно — без изменений');
+
+  // Сброс в одной вкладке виден в другой.
+  tab2.reset();
+  assert.equal(tab1.reload(), true);
+  assert.equal(tab1.getState().residents.length, 0);
+});

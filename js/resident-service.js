@@ -18,10 +18,8 @@
 
     if (!name) throw new errors.AppError('RESIDENT_NAME_REQUIRED');
     if (name.length > config.LIMITS.NAME_MAX_LENGTH) throw new errors.AppError('RESIDENT_NAME_TOO_LONG');
-    const lower = name.toLocaleLowerCase('ru-RU');
-    const duplicate = state.residents.some(function (r) {
-      return r.name.toLocaleLowerCase('ru-RU') === lower;
-    });
+    const key = validation.nameKey(name);
+    const duplicate = state.residents.some(function (r) { return validation.nameKey(r.name) === key; });
     if (duplicate) throw new errors.AppError('RESIDENT_NAME_DUPLICATE');
     if (state.residents.length >= config.LIMITS.MAX_RESIDENTS) throw new errors.AppError('RESIDENTS_LIMIT');
 

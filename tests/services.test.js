@@ -241,3 +241,19 @@ test('getSummary: невыполненные отдельно, история �
   assert.deepEqual(summary.completedTasks.map((t) => t.id), ['t3', 't4', 't1']);
   assert.equal(summary.tasks.length, 4);
 });
+
+// ---------- Найдено при тестировании ----------
+
+test('невидимые символы не дают создать «пустое» имя или название', () => {
+  ['​', '​‌‍', '﻿', '­', '⁠ ​', '\n\t'].forEach((name) => {
+    assert.throws(() => residentService.addResident(createDefaultState(), { name }), { code: 'RESIDENT_NAME_REQUIRED' }, JSON.stringify(name));
+  });
+  assert.throws(() => taskService.createTask(stateWithResidents(), { title: '​', assigneeId: ARTEM.id }), { code: 'TASK_TITLE_REQUIRED' });
+  const { resident } = residentService.addResident(createDefaultState(), { name: 'Ар​тём\nИванов' });
+  assert.equal(resident.name, 'Артём Иванов');
+});
+
+test('«Артём» и «Артем» — один и тот же жилец', () => {
+  assert.throws(() => residentService.addResident(stateWithResidents(), { name: 'Артем' }), { code: 'RESIDENT_NAME_DUPLICATE' });
+  assert.throws(() => residentService.addResident(stateWithResidents(), { name: 'АРТЕМ' }), { code: 'RESIDENT_NAME_DUPLICATE' });
+});
