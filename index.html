@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>RoomSplit — обязанности и общие расходы</title>
+  <meta name="description" content="RoomSplit помогает соседям по квартире распределять домашние обязанности, учитывать общие расходы и автоматически считать, кто кому должен.">
+  <meta name="theme-color" content="#0f766e">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f766e'/%3E%3Cpath d='M16 7 6 15h3v9h5v-6h4v6h5v-9h3z' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <svg class="brand__logo" viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="8"/>
+          <path d="M16 7 6 15h3v9h5v-6h4v6h5v-9h3z"/>
+        </svg>
+        <span class="brand__name">RoomSplit</span>
+      </div>
+      <span class="topbar__tagline">Обязанности и общие расходы — в одном месте</span>
+    </header>
+
+    <noscript>
+      <div class="banner banner--error">Для работы RoomSplit нужен включённый JavaScript.</div>
+    </noscript>
+    <div id="banner" class="banner" role="alert" hidden></div>
+
+    <main id="main">
+      <!-- Загрузка -->
+      <section id="screen-loading" class="screen screen--center" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="muted">Загружаем данные…</p>
+      </section>
+
+      <!-- Первый запуск / жильцы -->
+      <section id="screen-setup" class="screen" hidden aria-labelledby="setup-title">
+        <div class="card card--narrow">
+          <h1 id="setup-title" class="screen__title" tabindex="-1">Кто живёт в квартире?</h1>
+          <p class="muted">Добавьте всех жильцов. Потом между ними можно будет распределять обязанности и делить общие расходы.</p>
+
+          <form id="setup-resident-form" class="inline-form" novalidate autocomplete="off">
+            <label class="visually-hidden" for="setup-name">Имя жильца</label>
+            <input id="setup-name" name="name" type="text" placeholder="Имя, например Артём" maxlength="40" aria-describedby="setup-name-error">
+            <button type="submit" class="btn btn--secondary">Добавить жильца</button>
+            <p id="setup-name-error" class="field-error" data-error-for="name"></p>
+          </form>
+
+          <ul id="setup-residents" class="chips" aria-label="Жильцы"></ul>
+          <p id="setup-empty" class="empty">Добавьте жильцов — хотя бы одного.</p>
+
+          <button id="setup-continue" type="button" class="btn btn--primary btn--block" disabled>Продолжить</button>
+
+          <div class="divider"><span>или</span></div>
+          <button id="setup-demo" type="button" class="btn btn--ghost btn--block">Посмотреть на демо-данных</button>
+          <p class="hint">Заполнит приложение примером: Артём, Максим и Никита, три обязанности и три расхода. Данные можно сбросить в любой момент.</p>
+        </div>
+      </section>
+
+      <!-- Главная / общая сводка -->
+      <section id="screen-main" class="screen" hidden aria-labelledby="main-title">
+        <div class="main-head">
+          <div>
+            <h1 id="main-title" class="screen__title" tabindex="-1">Сводка по квартире</h1>
+            <p id="main-stats" class="muted"></p>
+          </div>
+          <div class="main-actions">
+            <button id="add-task" type="button" class="btn btn--primary">+ Обязанность</button>
+            <button id="add-expense" type="button" class="btn btn--primary">+ Расход</button>
+          </div>
+        </div>
+
+        <div class="grid">
+          <section class="card" aria-labelledby="tasks-title">
+            <h2 id="tasks-title" class="card__title">Обязанности</h2>
+            <ul id="task-list" class="list"></ul>
+            <p id="task-empty" class="empty">Обязанностей пока нет. Нажмите «+ Обязанность», чтобы добавить первую.</p>
+          </section>
+
+          <section class="card" aria-labelledby="debts-title">
+            <h2 id="debts-title" class="card__title">Долги</h2>
+            <ul id="debt-list" class="list"></ul>
+            <p id="debt-empty" class="empty">Долгов нет — все в расчёте.</p>
+          </section>
+
+          <section class="card" aria-labelledby="expenses-title">
+            <h2 id="expenses-title" class="card__title">Расходы</h2>
+            <ul id="expense-list" class="list"></ul>
+            <p id="expense-empty" class="empty">Расходов пока нет. Нажмите «+ Расход», когда кто-то оплатит общую покупку.</p>
+          </section>
+
+          <section class="card" aria-labelledby="residents-title">
+            <h2 id="residents-title" class="card__title">Жильцы</h2>
+            <ul id="resident-list" class="chips" aria-label="Жильцы"></ul>
+            <form id="main-resident-form" class="inline-form" novalidate autocomplete="off">
+              <label class="visually-hidden" for="main-name">Имя нового жильца</label>
+              <input id="main-name" name="name" type="text" placeholder="Новый жилец" maxlength="40" aria-describedby="main-name-error">
+              <button type="submit" class="btn btn--secondary">Добавить</button>
+              <p id="main-name-error" class="field-error" data-error-for="name"></p>
+            </form>
+            <p class="hint">Удалить можно только жильца без обязанностей и расходов.</p>
+          </section>
+        </div>
+      </section>
+
+      <!-- Добавление / редактирование обязанности -->
+      <section id="screen-task" class="screen" hidden aria-labelledby="task-form-title">
+        <form id="task-form" class="card card--narrow form" novalidate autocomplete="off">
+          <h1 id="task-form-title" class="screen__title" tabindex="-1">Новая обязанность</h1>
+
+          <div class="field">
+            <label for="task-title">Задача</label>
+            <input id="task-title" name="title" type="text" placeholder="Например, вынести мусор" maxlength="80" aria-describedby="task-title-error">
+            <p id="task-title-error" class="field-error" data-error-for="title"></p>
+          </div>
+
+          <div class="field">
+            <label for="task-assignee">Ответственный</label>
+            <select id="task-assignee" name="assigneeId" aria-describedby="task-assignee-error"></select>
+            <p id="task-assignee-error" class="field-error" data-error-for="assigneeId"></p>
+          </div>
+
+          <div class="field">
+            <label for="task-status">Статус</label>
+            <select id="task-status" name="status" aria-describedby="task-status-error">
+              <option value="pending">Не выполнено</option>
+              <option value="completed">Выполнено</option>
+            </select>
+            <p id="task-status-error" class="field-error" data-error-for="status"></p>
+          </div>
+
+          <p class="field-error form-error" data-error-for="form"></p>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary">Сохранить</button>
+            <button type="button" class="btn btn--ghost" data-action="cancel">Отмена</button>
+            <button id="task-delete" type="button" class="btn btn--danger" hidden>Удалить</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Добавление расхода -->
+      <section id="screen-expense" class="screen" hidden aria-labelledby="expense-form-title">
+        <form id="expense-form" class="card card--narrow form" novalidate autocomplete="off">
+          <h1 id="expense-form-title" class="screen__title" tabindex="-1">Новый расход</h1>
+
+          <div class="field">
+            <label for="expense-title">Название</label>
+            <input id="expense-title" name="title" type="text" placeholder="Например, продукты" maxlength="80" aria-describedby="expense-title-error">
+            <p id="expense-title-error" class="field-error" data-error-for="title"></p>
+          </div>
+
+          <div class="field">
+            <label for="expense-amount">Сумма</label>
+            <div class="input-suffix">
+              <input id="expense-amount" name="amount" type="text" inputmode="decimal" placeholder="3000" aria-describedby="expense-amount-error">
+              <span aria-hidden="true">₽</span>
+            </div>
+            <p id="expense-amount-error" class="field-error" data-error-for="amount"></p>
+          </div>
+
+          <div class="field">
+            <label for="expense-payer">Кто заплатил</label>
+            <select id="expense-payer" name="payerId" aria-describedby="expense-payer-error"></select>
+            <p id="expense-payer-error" class="field-error" data-error-for="payerId"></p>
+          </div>
+
+          <fieldset class="field">
+            <legend>Между кем делить <button id="expense-all" type="button" class="link-btn">выбрать всех</button></legend>
+            <div id="expense-participants" class="checks"></div>
+            <p id="expense-participants-error" class="field-error" data-error-for="participantIds"></p>
+          </fieldset>
+
+          <p id="expense-preview" class="preview" aria-live="polite"></p>
+          <p class="field-error form-error" data-error-for="form"></p>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn--primary">Сохранить</button>
+            <button type="button" class="btn btn--ghost" data-action="cancel">Отмена</button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Данные хранятся только в этом браузере и никуда не отправляются.</p>
+      <button id="reset-data" type="button" class="link-btn link-btn--danger">Сбросить все данные</button>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/errors.js"></script>
+  <script src="js/validation.js"></script>
+  <script src="js/money.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/debt-calculator.js"></script>
+  <script src="js/resident-service.js"></script>
+  <script src="js/task-service.js"></script>
+  <script src="js/expense-service.js"></script>
+  <script src="js/summary-service.js"></script>
+  <script src="js/demo-data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

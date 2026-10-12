@@ -1,0 +1,14 @@
+{
+  "name": "roomsplit",
+  "version": "1.0.0",
+  "description": "RoomSplit — обязанности и общие расходы соседей по квартире в одном месте",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test",
+    "start": "python3 -m http.server 8080"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
