@@ -18,7 +18,7 @@
   }
 
   /**
-   * getSummary(state) → { tasks, pendingTasks, completedTasks, debts, expenses, payments, residents, totals }
+   * getSummary(state) → { tasks, pendingTasks, completedTasks, debts, expenses, openExpenses, closedExpenses, payments, residents, totals }
    * tasks — все задачи (сначала невыполненные), pendingTasks — для главного экрана,
    * completedTasks — история выполненных, новые сверху.
    */
@@ -43,13 +43,18 @@
       });
     });
 
-    // Новые расходы сверху.
+    // Новые расходы сверху; закрытые (по ним все рассчитались) — отдельно.
+    const outstanding = debtCalculator.calculateOutstanding(state.expenses, state.residents, state.payments);
     const expenses = state.expenses.slice().reverse().map(function (expense) {
       return Object.assign({}, expense, {
         payerName: nameOf(state, expense.payerId),
         participantNames: expense.participantIds.map(function (id) { return nameOf(state, id); }),
+        outstandingKopecks: outstanding[expense.id],
+        closed: outstanding[expense.id] === 0,
       });
     });
+    const openExpenses = expenses.filter(function (e) { return !e.closed; });
+    const closedExpenses = expenses.filter(function (e) { return e.closed; });
 
     // История погашений: новые сверху.
     const payments = state.payments.slice().reverse().map(function (payment) {
@@ -68,6 +73,8 @@
       completedTasks: history,
       debts: debts,
       expenses: expenses,
+      openExpenses: openExpenses,
+      closedExpenses: closedExpenses,
       payments: payments,
       totals: {
         pendingTasks: pending.length,

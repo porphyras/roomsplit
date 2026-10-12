@@ -187,3 +187,53 @@ test('повреждённое погашение → INVALID_EXPENSE_DATA', () 
   ];
   bad.forEach((p) => assert.throws(() => calculateDebts([], RESIDENTS, [p]), { code: 'INVALID_EXPENSE_DATA' }));
 });
+
+// ---------- Закрытие расходов ----------
+const { calculateOutstanding } = require('../js/debt-calculator.js');
+const payment = (fromId, toId, amountKopecks) => ({ id: 'p' + fromId + amountKopecks, fromId, toId, amountKopecks });
+
+test('расход закрывается, когда все вернули свои доли', () => {
+  const e1 = expense('e1', 300000, ARTEM.id, ALL);
+  assert.deepEqual(calculateOutstanding([e1], RESIDENTS, []), { e1: 200000 });
+  assert.deepEqual(calculateOutstanding([e1], RESIDENTS, [payment(MAXIM.id, ARTEM.id, 100000)]), { e1: 100000 });
+  assert.deepEqual(calculateOutstanding([e1], RESIDENTS, [payment(MAXIM.id, ARTEM.id, 100000), payment(NIKITA.id, ARTEM.id, 100000)]), { e1: 0 });
+});
+
+test('расход только на плательщика закрыт сразу', () => {
+  assert.deepEqual(calculateOutstanding([expense('e', 5000, ARTEM.id, [ARTEM.id])], RESIDENTS, []), { e: 0 });
+});
+
+test('возвраты засчитываются в самые старые расходы', () => {
+  const old = expense('old', 200000, ARTEM.id, [ARTEM.id, MAXIM.id]); // Максим должен 1000
+  const fresh = expense('fresh', 60000, ARTEM.id, [ARTEM.id, MAXIM.id]); // ещё 300
+  assert.deepEqual(calculateOutstanding([old, fresh], RESIDENTS, [payment(MAXIM.id, ARTEM.id, 100000)]), { old: 0, fresh: 30000 });
+  assert.deepEqual(calculateOutstanding([old, fresh], RESIDENTS, [payment(MAXIM.id, ARTEM.id, 50000)]), { old: 50000, fresh: 30000 });
+});
+
+test('встречные долги тоже закрывают расходы', () => {
+  const a = expense('a', 100000, ARTEM.id, [ARTEM.id, MAXIM.id]); // Максим должен 500
+  const m = expense('m', 100000, MAXIM.id, [ARTEM.id, MAXIM.id]); // Артём должен 500
+  assert.deepEqual(calculateOutstanding([a, m], RESIDENTS, []), { a: 0, m: 0 });
+});
+
+test('сумма «ждёт возврата» по всем расходам = сумма текущих долгов', () => {
+  let seed = 99;
+  const rnd = (n) => { seed = (seed * 1103515245 + 12345) % 2147483648; return Math.floor((seed / 2147483648) * n); };
+  for (let round = 0; round < 300; round += 1) {
+    const expenses = [];
+    for (let k = 0, n = 1 + rnd(6); k < n; k += 1) {
+      const participants = ALL.filter(() => rnd(10) < 7);
+      if (!participants.length) participants.push(ALL[rnd(3)]);
+      expenses.push(expense('e' + k, 1 + rnd(400000), participants[rnd(participants.length)], participants));
+    }
+    const payments = [];
+    calculateDebts(expenses, RESIDENTS).forEach((d) => {
+      if (rnd(2)) payments.push(payment(d.debtorId, d.creditorId, 1 + rnd(d.amountKopecks)));
+    });
+    const totalDebt = calculateDebts(expenses, RESIDENTS, payments).reduce((s, d) => s + d.amountKopecks, 0);
+    const out = calculateOutstanding(expenses, RESIDENTS, payments);
+    const totalOutstanding = Object.values(out).reduce((s, v) => s + v, 0);
+    assert.equal(totalOutstanding, totalDebt, 'прогон ' + round);
+    if (totalDebt === 0) assert.ok(Object.values(out).every((v) => v === 0), 'нет долгов — все расходы закрыты');
+  }
+});

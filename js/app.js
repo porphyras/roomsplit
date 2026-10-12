@@ -32,6 +32,8 @@
     showAllExpenses: false,
     showPayments: false,
     paymentsLimit: config.UI.PAYMENTS_PAGE,
+    showClosed: false,
+    closedLimit: config.UI.CLOSED_EXPENSES_PAGE,
   };
 
   let payingDebt = null;
@@ -491,54 +493,92 @@
     renderMain();
   });
 
-  /** Последние расходы; полный список — по кнопке «Показать все». */
-  function renderExpenses(expenses) {
+  function deleteExpenseWithConfirm(expense) {
+    let preview = { cancelledKopecks: 0 };
+    if (!attempt(function () { preview = store.previewDeleteExpense(expense.id); })) {
+      renderMain();
+      return;
+    }
+    let question = 'Удалить расход «' + expense.title + '» на ' + money.formatKopecks(expense.amountKopecks) + '? Долги будут пересчитаны.';
+    if (preview.cancelledKopecks) {
+      question += '\n\nПо этому расходу уже возвращали деньги: погашения на '
+        + money.formatKopecks(preview.cancelledKopecks) + ' тоже будут отменены, чтобы не появились обратные долги.';
+    }
+    if (!window.confirm(question)) return;
+    let result;
+    if (attempt(function () { result = store.deleteExpense(expense.id); })) {
+      renderMain();
+      showToast(result.cancelledKopecks
+        ? 'Расход удалён, отменены погашения на ' + money.formatKopecks(result.cancelledKopecks)
+        : 'Расход удалён, долги пересчитаны');
+    }
+  }
+
+  function expenseItem(expense) {
+    const meta = 'Платил(а) ' + expense.payerName + ' · делят: ' + expense.participantNames.join(', ');
+    const date = formatDate(expense.createdAt);
+    const status = expense.closed
+      ? el('span', { className: 'nowrap', text: 'закрыт' })
+      : el('span', { className: 'outstanding nowrap', text: 'ждёт возврата ' + money.formatKopecks(expense.outstandingKopecks) });
+    return el('li', { className: 'list__item' + (expense.closed ? ' is-closed' : '') }, [
+      el('div', { className: 'list__body' }, [
+        el('div', { className: 'list__title', text: expense.title }),
+        el('div', { className: 'list__meta' }, [
+          meta,
+          date ? ' · ' : null,
+          date ? el('span', { className: 'nowrap', text: date }) : null,
+          ' · ',
+          status,
+        ]),
+      ]),
+      el('div', { className: 'list__amount', text: money.formatKopecks(expense.amountKopecks) }),
+      iconButton('trash', 'Удалить расход: ' + expense.title, function () { deleteExpenseWithConfirm(expense); }, 'icon-btn--danger'),
+    ]);
+  }
+
+  /** Открытые расходы (последние 5, остальные — по «Показать все»). */
+  function renderExpenses(expenses, closedCount) {
     const list = $('#expense-list');
     list.textContent = '';
     const limit = config.UI.EXPENSES_PREVIEW;
     const visible = view.showAllExpenses ? expenses : expenses.slice(0, limit);
-    visible.forEach(function (expense) {
-      const meta = 'Платил(а) ' + expense.payerName + ' · делят: ' + expense.participantNames.join(', ');
-      const date = formatDate(expense.createdAt);
-      list.appendChild(el('li', { className: 'list__item' }, [
-        el('div', { className: 'list__body' }, [
-          el('div', { className: 'list__title', text: expense.title }),
-          el('div', { className: 'list__meta' }, [
-            meta,
-            date ? ' · ' : null,
-            date ? el('span', { className: 'nowrap', text: date }) : null,
-          ]),
-        ]),
-        el('div', { className: 'list__amount', text: money.formatKopecks(expense.amountKopecks) }),
-        iconButton('trash', 'Удалить расход: ' + expense.title, function () {
-          let preview = { cancelledKopecks: 0 };
-          if (!attempt(function () { preview = store.previewDeleteExpense(expense.id); })) {
-            renderMain();
-            return;
-          }
-          let question = 'Удалить расход «' + expense.title + '» на ' + money.formatKopecks(expense.amountKopecks) + '? Долги будут пересчитаны.';
-          if (preview.cancelledKopecks) {
-            question += '\n\nПо этому расходу уже возвращали деньги: погашения на '
-              + money.formatKopecks(preview.cancelledKopecks) + ' тоже будут отменены, чтобы не появились обратные долги.';
-          }
-          if (!window.confirm(question)) return;
-          let result;
-          if (attempt(function () { result = store.deleteExpense(expense.id); })) {
-            renderMain();
-            showToast(result.cancelledKopecks
-              ? 'Расход удалён, отменены погашения на ' + money.formatKopecks(result.cancelledKopecks)
-              : 'Расход удалён, долги пересчитаны');
-          }
-        }, 'icon-btn--danger'),
-      ]));
-    });
-    $('#expense-empty').hidden = expenses.length > 0;
+    visible.forEach(function (expense) { list.appendChild(expenseItem(expense)); });
+    $('#expense-empty').hidden = expenses.length > 0 || closedCount > 0;
+    $('#expense-all-closed').hidden = expenses.length > 0 || closedCount === 0;
 
     const more = $('#expenses-more');
     more.hidden = expenses.length <= limit;
     more.setAttribute('aria-expanded', String(view.showAllExpenses));
-    more.textContent = view.showAllExpenses ? 'Свернуть' : 'Показать все расходы (' + expenses.length + ')';
+    more.textContent = view.showAllExpenses ? 'Свернуть' : 'Показать все открытые (' + expenses.length + ')';
   }
+
+  /** Закрытые расходы — свёрнутая история, новые сверху, порциями. */
+  function renderClosedExpenses(closed) {
+    $('#closed-block').hidden = closed.length === 0;
+    $('#closed-count').textContent = String(closed.length);
+    $('#closed-toggle').setAttribute('aria-expanded', String(view.showClosed));
+    $('#closed-panel').hidden = !view.showClosed;
+
+    const list = $('#closed-list');
+    list.textContent = '';
+    if (!view.showClosed) return;
+    closed.slice(0, view.closedLimit).forEach(function (expense) { list.appendChild(expenseItem(expense)); });
+    const rest = closed.length - view.closedLimit;
+    const more = $('#closed-more');
+    more.hidden = rest <= 0;
+    if (rest > 0) more.textContent = 'Показать ещё ' + Math.min(rest, config.UI.CLOSED_EXPENSES_PAGE) + ' из ' + rest;
+  }
+
+  $('#closed-toggle').addEventListener('click', function () {
+    view.showClosed = !view.showClosed;
+    view.closedLimit = config.UI.CLOSED_EXPENSES_PAGE;
+    renderMain();
+  });
+
+  $('#closed-more').addEventListener('click', function () {
+    view.closedLimit += config.UI.CLOSED_EXPENSES_PAGE;
+    renderMain();
+  });
 
   $('#expenses-more').addEventListener('click', function () {
     view.showAllExpenses = !view.showAllExpenses;
@@ -584,11 +624,12 @@
     renderDone(summary.completedTasks);
     renderDebts(summary.debts);
     renderPayments(summary.payments);
-    renderExpenses(summary.expenses);
+    renderExpenses(summary.openExpenses, summary.closedExpenses.length);
+    renderClosedExpenses(summary.closedExpenses);
     renderResidents(summary.residents);
     setCount('#tasks-title', summary.totals.pendingTasks);
     setCount('#debts-title', summary.debts.length);
-    setCount('#expenses-title', summary.expenses.length);
+    setCount('#expenses-title', summary.openExpenses.length);
     setCount('#residents-title', summary.residents.length);
   }
 
@@ -786,11 +827,18 @@
       }
     });
     if (ok) {
+      const closedNow = closedExpenseIds().indexOf(result.expense.id) !== -1;
       const count = result.debts.length;
-      showToast('Расход сохранён. ' + (count ? 'Долгов: ' + count : 'Все в расчёте'));
+      showToast(closedNow
+        ? 'Расход сохранён и сразу закрыт: возвращать по нему нечего'
+        : 'Расход сохранён. ' + (count ? 'Долгов: ' + count : 'Все в расчёте'));
       closeForm();
     }
   });
+
+  function closedExpenseIds() {
+    return store.getSummary().closedExpenses.map(function (e) { return e.id; });
+  }
 
   document.querySelectorAll('[data-action="cancel"]').forEach(function (button) {
     button.addEventListener('click', closeForm);
@@ -844,17 +892,22 @@
     const form = event.currentTarget;
     const debt = payingDebt;
     let result;
+    const closedBefore = closedExpenseIds();
     const ok = submitWith(form, function () {
       const amountKopecks = money.parseAmountToKopecks(form.elements.amount.value);
       result = store.createPayment({ fromId: debt.debtorId, toId: debt.creditorId, amountKopecks: amountKopecks });
     });
     if (!ok) return;
+    const newlyClosed = store.getSummary().closedExpenses.filter(function (e) { return closedBefore.indexOf(e.id) === -1; });
 
     const paid = money.formatKopecks(result.payment.amountKopecks);
     const text = result.remainingKopecks
       ? 'Погашено ' + paid + ', осталось ' + money.formatKopecks(result.remainingKopecks)
       : 'Долг погашен полностью';
-    showToast(text, false, {
+    const closedNote = newlyClosed.length === 1
+      ? '. Закрыт расход «' + newlyClosed[0].title + '»'
+      : newlyClosed.length > 1 ? '. Закрыто расходов: ' + newlyClosed.length : '';
+    showToast(text + closedNote, false, {
       label: 'Отменить',
       run: function () {
         if (attempt(function () { store.deletePayment(result.payment.id); })) renderMain();
@@ -873,6 +926,8 @@
       view.showAllExpenses = false;
       view.showPayments = false;
       view.paymentsLimit = config.UI.PAYMENTS_PAGE;
+      view.showClosed = false;
+      view.closedLimit = config.UI.CLOSED_EXPENSES_PAGE;
       if (store.getMode() !== 'memory') hideBanner();
       if (history.state && history.state.roomsplit) history.replaceState(null, '');
       goSetup();

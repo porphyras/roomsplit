@@ -260,3 +260,33 @@ test('две вкладки: устаревшая копия не затирае
   assert.equal(tab1.reload(), true);
   assert.equal(tab1.getState().residents.length, 0);
 });
+
+test('сводка: открытые и закрытые расходы на демо-данных', () => {
+  const store = createStore({ storage: createMemoryStorage() });
+  store.loadDemo();
+  const summary = store.getSummary();
+  // Артём вернул Никите свою долю за химию встречным долгом — расход закрыт.
+  assert.deepEqual(summary.closedExpenses.map((e) => e.title), ['Бытовая химия']);
+  assert.deepEqual(summary.openExpenses.map((e) => [e.title, e.outstandingKopecks]), [
+    ['Интернет за месяц', 30000],
+    ['Продукты', 67500],
+  ]);
+  assert.equal(summary.openExpenses.reduce((s, e) => s + e.outstandingKopecks, 0),
+    summary.debts.reduce((s, d) => s + d.amountKopecks, 0), '«ждёт возврата» = сумма долгов');
+});
+
+test('сценарий сокомандника: все вернули — расход закрылся сам', () => {
+  const store = createStore({ storage: createMemoryStorage() });
+  const a = store.addResident({ name: 'Артём' });
+  const m = store.addResident({ name: 'Максим' });
+  const n = store.addResident({ name: 'Никита' });
+  store.createExpense({ title: 'Продукты', amountKopecks: 300000, payerId: a.id, participantIds: [a.id, m.id, n.id] });
+  assert.equal(store.getSummary().openExpenses.length, 1);
+  store.createPayment({ fromId: m.id, toId: a.id, amountKopecks: 100000 });
+  assert.equal(store.getSummary().openExpenses[0].outstandingKopecks, 100000);
+  store.createPayment({ fromId: n.id, toId: a.id, amountKopecks: 100000 });
+  const summary = store.getSummary();
+  assert.equal(summary.openExpenses.length, 0);
+  assert.deepEqual(summary.closedExpenses.map((e) => e.title), ['Продукты']);
+  assert.deepEqual(summary.debts, []);
+});

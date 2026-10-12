@@ -472,6 +472,10 @@ select {
 .list__item--wrap .list__body { flex: 1 1 auto; }
 .list__item--wrap .list__amount { margin-left: auto; }
 
+.outstanding { color: var(--accent); font-weight: 600; }
+.is-closed .list__title { color: var(--muted); font-weight: 500; }
+.is-closed .list__amount { color: var(--muted); font-weight: 600; }
+
 .task-check {
   flex: none;
   width: 22px;

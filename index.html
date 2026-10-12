@@ -116,7 +116,21 @@
               <h2 id="expenses-title" class="card__title">Расходы</h2>
               <ul id="expense-list" class="list"></ul>
               <p id="expense-empty" class="empty">Расходов пока нет. Нажмите «+ Расход», когда кто-то оплатит общую покупку.</p>
+              <p id="expense-all-closed" class="empty" hidden>Открытых расходов нет — по всем рассчитались.</p>
               <button id="expenses-more" type="button" class="show-more" aria-expanded="false" hidden></button>
+
+              <div id="closed-block" class="history" hidden>
+                <button id="closed-toggle" type="button" class="history__toggle" aria-expanded="false" aria-controls="closed-panel">
+                  <span>Закрытые расходы</span>
+                  <span id="closed-count" class="count"></span>
+                  <svg class="history__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div id="closed-panel" hidden>
+                  <p class="hint">Расход закрывается сам, когда все вернули свои доли. Возвраты засчитываются в самые старые расходы.</p>
+                  <ul id="closed-list" class="list"></ul>
+                  <button id="closed-more" type="button" class="show-more" hidden></button>
+                </div>
+              </div>
             </section>
 
             <section class="card" aria-labelledby="residents-title">

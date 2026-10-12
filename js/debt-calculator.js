@@ -112,9 +112,49 @@
     return debts;
   }
 
+  /**
+   * Сколько по каждому расходу ещё не вернули (сверх ТЗ, для закрытия расходов).
+   * Погашения вносятся на общий долг, поэтому правило такое: всё, что жилец уже
+   * вернул (деньгами или встречными долгами), засчитывается в его доли
+   * в самых старых расходах. Расход закрыт, когда доли всех участников покрыты.
+   * → { [expenseId]: копейки, которые ещё ждут возврата }
+   */
+  function calculateOutstanding(expenses, residents, payments) {
+    const balances = calculateBalances(expenses, residents, payments);
+
+    // Сколько жилец должен по чужим расходам в сумме.
+    const owedShares = {};
+    residents.forEach(function (r) { owedShares[r.id] = 0; });
+    expenses.forEach(function (expense) {
+      splitAmount(expense.amountKopecks, expense.participantIds).forEach(function (part) {
+        if (part.residentId !== expense.payerId) owedShares[part.residentId] += part.shareKopecks;
+      });
+    });
+
+    // Из них уже покрыто: всё, кроме текущего долга.
+    const covered = {};
+    residents.forEach(function (r) {
+      covered[r.id] = Math.max(0, owedShares[r.id] - Math.max(0, -balances[r.id]));
+    });
+
+    const outstanding = {};
+    expenses.forEach(function (expense) { // от старых к новым
+      let left = 0;
+      splitAmount(expense.amountKopecks, expense.participantIds).forEach(function (part) {
+        if (part.residentId === expense.payerId) return;
+        const take = Math.min(covered[part.residentId], part.shareKopecks);
+        covered[part.residentId] -= take;
+        left += part.shareKopecks - take;
+      });
+      outstanding[expense.id] = left;
+    });
+    return outstanding;
+  }
+
   return {
     splitAmount: splitAmount,
     calculateBalances: calculateBalances,
     calculateDebts: calculateDebts,
+    calculateOutstanding: calculateOutstanding,
   };
 });
