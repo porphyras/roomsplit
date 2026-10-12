@@ -142,9 +142,14 @@
         const expense = run(function (s) { return expenseService.createExpense(s, payload); }).expense;
         return { expense: expense, debts: debtCalculator.calculateDebts(state.expenses, state.residents, state.payments) };
       },
+      /** → { success, cancelledKopecks } — сколько погашений отменено вместе с расходом. */
       deleteExpense: function (id) {
-        run(function (s) { return expenseService.deleteExpense(s, id); });
-        return { success: true };
+        const result = run(function (s) { return expenseService.deleteExpense(s, id); });
+        return { success: true, cancelledKopecks: result.cancelledKopecks };
+      },
+      previewDeleteExpense: function (id) {
+        sync();
+        return expenseService.previewDeleteExpense(state, id);
       },
 
       /** Погашение долга (сверх ТЗ): { payment, remainingKopecks }. */

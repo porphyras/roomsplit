@@ -511,11 +511,23 @@
         ]),
         el('div', { className: 'list__amount', text: money.formatKopecks(expense.amountKopecks) }),
         iconButton('trash', 'Удалить расход: ' + expense.title, function () {
-          const question = 'Удалить расход «' + expense.title + '» на ' + money.formatKopecks(expense.amountKopecks) + '? Долги будут пересчитаны.';
-          if (!window.confirm(question)) return;
-          if (attempt(function () { store.deleteExpense(expense.id); })) {
+          let preview = { cancelledKopecks: 0 };
+          if (!attempt(function () { preview = store.previewDeleteExpense(expense.id); })) {
             renderMain();
-            showToast('Расход удалён, долги пересчитаны');
+            return;
+          }
+          let question = 'Удалить расход «' + expense.title + '» на ' + money.formatKopecks(expense.amountKopecks) + '? Долги будут пересчитаны.';
+          if (preview.cancelledKopecks) {
+            question += '\n\nПо этому расходу уже возвращали деньги: погашения на '
+              + money.formatKopecks(preview.cancelledKopecks) + ' тоже будут отменены, чтобы не появились обратные долги.';
+          }
+          if (!window.confirm(question)) return;
+          let result;
+          if (attempt(function () { result = store.deleteExpense(expense.id); })) {
+            renderMain();
+            showToast(result.cancelledKopecks
+              ? 'Расход удалён, отменены погашения на ' + money.formatKopecks(result.cancelledKopecks)
+              : 'Расход удалён, долги пересчитаны');
           }
         }, 'icon-btn--danger'),
       ]));

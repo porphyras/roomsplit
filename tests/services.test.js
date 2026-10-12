@@ -257,3 +257,120 @@ test('«Артём» и «Артем» — один и тот же жилец', 
   assert.throws(() => residentService.addResident(stateWithResidents(), { name: 'Артем' }), { code: 'RESIDENT_NAME_DUPLICATE' });
   assert.throws(() => residentService.addResident(stateWithResidents(), { name: 'АРТЕМ' }), { code: 'RESIDENT_NAME_DUPLICATE' });
 });
+
+// ---------- Удаление расхода, по которому уже были погашения ----------
+
+const { calculateDebts } = require('../js/debt-calculator.js');
+const paymentService = require('../js/payment-service.js');
+
+function debtsOf(state) {
+  return calculateDebts(state.expenses, state.residents, state.payments).map((d) => [d.debtorId, d.creditorId, d.amountKopecks]);
+}
+function addExpense(state, amountKopecks, payerId, participantIds) {
+  return expenseService.createExpense(state, { title: 'Расход', amountKopecks, payerId, participantIds });
+}
+function pay(state, fromId, toId, amountKopecks) {
+  return paymentService.createPayment(state, { fromId, toId, amountKopecks }).state;
+}
+
+test('баг из ручного теста: все вернули долги, расход удалили — обратных долгов нет', () => {
+  const created = addExpense(stateWithResidents(), 300000, ARTEM.id, ALL);
+  let state = pay(created.state, MAXIM.id, ARTEM.id, 100000);
+  state = pay(state, NIKITA.id, ARTEM.id, 100000);
+  assert.deepEqual(debtsOf(state), []);
+
+  const preview = expenseService.previewDeleteExpense(state, created.expense.id);
+  assert.equal(preview.cancelledKopecks, 200000);
+
+  const result = expenseService.deleteExpense(state, created.expense.id);
+  assert.equal(result.cancelledKopecks, 200000);
+  assert.deepEqual(result.state.payments, []);
+  assert.deepEqual(debtsOf(result.state), [], 'раньше здесь появлялись Артём → Максим и Артём → Никита');
+});
+
+test('удаление одного из расходов: отменяется только переплата', () => {
+  let state = stateWithResidents();
+  state = addExpense(state, 300000, ARTEM.id, ALL).state; // по 1000
+  const second = addExpense(state, 30000, ARTEM.id, ALL); // по 100
+  state = pay(second.state, MAXIM.id, ARTEM.id, 110000); // Максим вернул всё: 1100
+
+  const result = expenseService.deleteExpense(state, second.expense.id);
+  assert.equal(result.cancelledKopecks, 10000, 'отменено 100 ₽ — доля Максима в удалённом расходе');
+  assert.equal(result.state.payments[0].amountKopecks, 100000);
+  assert.deepEqual(debtsOf(result.state), [[NIKITA.id, ARTEM.id, 100000]]);
+});
+
+test('частичное погашение больше оставшегося долга урезается до него', () => {
+  let state = stateWithResidents();
+  const first = addExpense(state, 200000, ARTEM.id, [ARTEM.id, MAXIM.id]); // Максим должен 1000
+  state = addExpense(first.state, 60000, ARTEM.id, [ARTEM.id, MAXIM.id]).state; // ещё 300
+  state = pay(state, MAXIM.id, ARTEM.id, 50000); // вернул 500 из 1300
+
+  const result = expenseService.deleteExpense(state, first.expense.id);
+  assert.equal(result.cancelledKopecks, 20000, 'после удаления долг 300, вернул 500 → отменить 200');
+  assert.deepEqual(debtsOf(result.state), []);
+});
+
+test('законные погашения за другие расходы не отменяются', () => {
+  let state = stateWithResidents();
+  state = addExpense(state, 200000, ARTEM.id, [ARTEM.id, MAXIM.id]).state; // Максим должен Артёму 1000
+  state = pay(state, MAXIM.id, ARTEM.id, 100000); // и вернул
+  const own = addExpense(state, 90000, MAXIM.id, [MAXIM.id, NIKITA.id]); // Никита должен Максиму 450
+  const unrelated = addExpense(own.state, 40000, NIKITA.id, [NIKITA.id, ARTEM.id]); // Артём должен Никите 200
+  state = unrelated.state;
+
+  const r1 = expenseService.deleteExpense(state, own.expense.id);
+  assert.equal(r1.cancelledKopecks, 0, 'удалили расход Максима — его старое погашение Артёму на месте');
+  assert.equal(r1.state.payments.length, 1);
+
+  const r2 = expenseService.deleteExpense(state, unrelated.expense.id);
+  assert.equal(r2.cancelledKopecks, 0, 'удалили расход, где Максима нет');
+  assert.equal(r2.state.payments[0].amountKopecks, 100000);
+});
+
+test('без погашений удаление расхода ничего лишнего не делает', () => {
+  const created = addExpense(stateWithResidents(), 300000, ARTEM.id, ALL);
+  const result = expenseService.deleteExpense(created.state, created.expense.id);
+  assert.equal(result.cancelledKopecks, 0);
+  assert.deepEqual(result.state.expenses, []);
+});
+
+test('свойство: удаление расхода не создаёт новых переплат (300 случайных прогонов)', () => {
+  let seed = 2026;
+  const rnd = (n) => { seed = (seed * 1103515245 + 12345) % 2147483648; return Math.floor((seed / 2147483648) * n); };
+  const { calculateBalances } = require('../js/debt-calculator.js');
+  const overpaid = (s) => {
+    const owed = calculateBalances(s.expenses, s.residents);
+    const out = {};
+    s.residents.forEach((r) => {
+      const net = s.payments.reduce((sum, p) => sum + (p.fromId === r.id ? p.amountKopecks : 0) - (p.toId === r.id ? p.amountKopecks : 0), 0);
+      out[r.id] = Math.max(0, net - Math.max(0, -owed[r.id]));
+    });
+    return out;
+  };
+
+  for (let round = 0; round < 300; round += 1) {
+    let state = stateWithResidents();
+    for (let k = 0, n = 1 + rnd(5); k < n; k += 1) {
+      const participants = ALL.filter(() => rnd(10) < 7);
+      if (!participants.length) participants.push(ALL[rnd(3)]);
+      state = addExpense(state, 100 + rnd(500000), participants[rnd(participants.length)], participants).state;
+      // иногда кто-то что-то возвращает
+      const debts = calculateDebts(state.expenses, state.residents, state.payments);
+      if (debts.length && rnd(2)) {
+        const d = debts[rnd(debts.length)];
+        state = pay(state, d.debtorId, d.creditorId, 1 + rnd(d.amountKopecks));
+      }
+    }
+    const victim = state.expenses[rnd(state.expenses.length)];
+    const before = overpaid(state);
+    const result = expenseService.deleteExpense(state, victim.id);
+    const after = overpaid(result.state);
+
+    ALL.forEach((id) => assert.ok(after[id] <= before[id], 'новая переплата у ' + id + ' в прогоне ' + round));
+    result.state.payments.forEach((p) => assert.ok(Number.isSafeInteger(p.amountKopecks) && p.amountKopecks > 0));
+    const paidBefore = state.payments.reduce((s, p) => s + p.amountKopecks, 0);
+    const paidAfter = result.state.payments.reduce((s, p) => s + p.amountKopecks, 0);
+    assert.equal(paidBefore - paidAfter, result.cancelledKopecks, 'отменено ровно столько, сколько сообщено');
+  }
+});
