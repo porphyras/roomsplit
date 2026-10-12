@@ -27,7 +27,7 @@
       tasks: [
         { id: 'task-demo-1', title: 'Вынести мусор', assigneeId: 'resident-demo-maxim', status: P, createdAt: at(300) },
         { id: 'task-demo-2', title: 'Убрать кухню', assigneeId: 'resident-demo-artem', status: P, createdAt: at(240) },
-        { id: 'task-demo-3', title: 'Купить бытовую химию', assigneeId: 'resident-demo-nikita', status: C, createdAt: at(180) },
+        { id: 'task-demo-3', title: 'Купить бытовую химию', assigneeId: 'resident-demo-nikita', status: C, createdAt: at(180), completedAt: at(90) },
       ],
       expenses: [
         {

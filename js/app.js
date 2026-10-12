@@ -25,6 +25,13 @@
   let editingTaskId = null;
   let toastTimer = null;
 
+  // Что раскрыто на главной. Не сохраняется: после перезагрузки снова компактный вид.
+  const view = {
+    showDone: false,
+    doneLimit: config.UI.DONE_TASKS_PAGE,
+    showAllExpenses: false,
+  };
+
   const dateFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
   // ---------- Утилиты DOM ----------
@@ -94,13 +101,26 @@
 
   // ---------- Сообщения ----------
 
-  function showToast(text, isError) {
+  /** action = { label, run } — кнопка в сообщении, например «Отменить». */
+  function showToast(text, isError, action) {
     const toast = $('#toast');
-    toast.textContent = text;
+    toast.textContent = '';
+    toast.appendChild(el('span', { text: text }));
+    if (action) {
+      toast.appendChild(el('button', {
+        type: 'button',
+        className: 'toast__action',
+        text: action.label,
+        onclick: function () {
+          toast.hidden = true;
+          action.run();
+        },
+      }));
+    }
     toast.className = 'toast' + (isError ? ' toast--error' : '');
     toast.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { toast.hidden = true; }, isError ? 5000 : 2500);
+    toastTimer = setTimeout(function () { toast.hidden = true; }, isError || action ? 5000 : 2500);
   }
 
   function showBanner(parts, isError) {
@@ -301,42 +321,90 @@
     $('#main-stats').textContent = parts.join(' · ');
   }
 
-  function renderTasks(tasks) {
+  function setTaskStatus(task, status) {
+    if (!attempt(function () { store.updateTaskStatus(task.id, status); })) {
+      renderMain();
+      return;
+    }
+    renderMain();
+    if (status === config.TASK_STATUS.COMPLETED) {
+      showToast('Готово: ' + task.title, false, {
+        label: 'Отменить',
+        run: function () { setTaskStatus(task, config.TASK_STATUS.PENDING); },
+      });
+    }
+  }
+
+  function taskItem(task) {
+    const done = task.status === config.TASK_STATUS.COMPLETED;
+    const when = done ? formatDate(task.completedAt) : '';
+    const checkbox = el('input', {
+      type: 'checkbox',
+      className: 'task-check',
+      checked: done,
+      'aria-label': (done ? 'Вернуть в работу: ' : 'Отметить выполненной: ') + task.title,
+      onchange: function (event) {
+        setTaskStatus(task, event.target.checked ? config.TASK_STATUS.COMPLETED : config.TASK_STATUS.PENDING);
+      },
+    });
+    const open = el('button', {
+      type: 'button',
+      className: 'task-open',
+      'aria-label': 'Изменить: ' + task.title,
+      onclick: function () { openTaskForm(task.id); },
+    }, [
+      el('div', { className: 'list__title', text: task.title }),
+      el('div', { className: 'list__meta' }, [
+        el('span', { className: 'badge' + (done ? ' badge--done' : ''), text: task.assigneeName }),
+        ' ' + config.TASK_STATUS_LABELS[task.status].toLowerCase(),
+        when ? ' ' : null,
+        when ? el('span', { className: 'nowrap', text: when }) : null,
+      ]),
+    ]);
+    return el('li', { className: 'list__item' + (done ? ' is-done' : '') }, [
+      checkbox,
+      open,
+      iconButton('edit', 'Изменить: ' + task.title, function () { openTaskForm(task.id); }),
+    ]);
+  }
+
+  /** На главной — только невыполненные. */
+  function renderTasks(pending, completedCount) {
     const list = $('#task-list');
     list.textContent = '';
-    tasks.forEach(function (task) {
-      const done = task.status === config.TASK_STATUS.COMPLETED;
-      const checkbox = el('input', {
-        type: 'checkbox',
-        className: 'task-check',
-        checked: done,
-        'aria-label': (done ? 'Отметить невыполненной: ' : 'Отметить выполненной: ') + task.title,
-        onchange: function (event) {
-          const status = event.target.checked ? config.TASK_STATUS.COMPLETED : config.TASK_STATUS.PENDING;
-          if (!attempt(function () { store.updateTaskStatus(task.id, status); })) event.target.checked = done;
-          renderMain();
-        },
-      });
-      const open = el('button', {
-        type: 'button',
-        className: 'task-open',
-        'aria-label': 'Изменить: ' + task.title,
-        onclick: function () { openTaskForm(task.id); },
-      }, [
-        el('div', { className: 'list__title', text: task.title }),
-        el('div', { className: 'list__meta' }, [
-          el('span', { className: 'badge' + (done ? ' badge--done' : ''), text: task.assigneeName }),
-          ' ' + config.TASK_STATUS_LABELS[task.status].toLowerCase(),
-        ]),
-      ]);
-      list.appendChild(el('li', { className: 'list__item' + (done ? ' is-done' : '') }, [
-        checkbox,
-        open,
-        iconButton('edit', 'Изменить: ' + task.title, function () { openTaskForm(task.id); }),
-      ]));
-    });
-    $('#task-empty').hidden = tasks.length > 0;
+    pending.forEach(function (task) { list.appendChild(taskItem(task)); });
+    $('#task-empty').hidden = pending.length > 0 || completedCount > 0;
+    $('#task-all-done').hidden = pending.length > 0 || completedCount === 0;
   }
+
+  /** История выполненных: свёрнута по умолчанию, раскрывается порциями. */
+  function renderDone(completed) {
+    $('#done-block').hidden = completed.length === 0;
+    $('#done-count').textContent = String(completed.length);
+    $('#done-toggle').setAttribute('aria-expanded', String(view.showDone));
+    $('#done-panel').hidden = !view.showDone;
+
+    const list = $('#done-list');
+    list.textContent = '';
+    if (!view.showDone) return;
+
+    completed.slice(0, view.doneLimit).forEach(function (task) { list.appendChild(taskItem(task)); });
+    const rest = completed.length - view.doneLimit;
+    const more = $('#done-more');
+    more.hidden = rest <= 0;
+    if (rest > 0) more.textContent = 'Показать ещё ' + Math.min(rest, config.UI.DONE_TASKS_PAGE) + ' из ' + rest;
+  }
+
+  $('#done-toggle').addEventListener('click', function () {
+    view.showDone = !view.showDone;
+    view.doneLimit = config.UI.DONE_TASKS_PAGE;
+    renderMain();
+  });
+
+  $('#done-more').addEventListener('click', function () {
+    view.doneLimit += config.UI.DONE_TASKS_PAGE;
+    renderMain();
+  });
 
   function renderDebts(debts) {
     const list = $('#debt-list');
@@ -357,10 +425,13 @@
     $('#debt-empty').hidden = debts.length > 0;
   }
 
+  /** Последние расходы; полный список — по кнопке «Показать все». */
   function renderExpenses(expenses) {
     const list = $('#expense-list');
     list.textContent = '';
-    expenses.forEach(function (expense) {
+    const limit = config.UI.EXPENSES_PREVIEW;
+    const visible = view.showAllExpenses ? expenses : expenses.slice(0, limit);
+    visible.forEach(function (expense) {
       const meta = 'Платил(а) ' + expense.payerName + ' · делят: ' + expense.participantNames.join(', ');
       const date = formatDate(expense.createdAt);
       list.appendChild(el('li', { className: 'list__item' }, [
@@ -384,7 +455,18 @@
       ]));
     });
     $('#expense-empty').hidden = expenses.length > 0;
+
+    const more = $('#expenses-more');
+    more.hidden = expenses.length <= limit;
+    more.setAttribute('aria-expanded', String(view.showAllExpenses));
+    more.textContent = view.showAllExpenses ? 'Свернуть' : 'Показать все расходы (' + expenses.length + ')';
   }
+
+  $('#expenses-more').addEventListener('click', function () {
+    view.showAllExpenses = !view.showAllExpenses;
+    renderMain();
+    if (!view.showAllExpenses) $('#expenses-title').scrollIntoView({ block: 'nearest' });
+  });
 
   function renderResidents(residents) {
     const list = $('#resident-list');
@@ -420,7 +502,8 @@
       return;
     }
     renderStats(summary);
-    renderTasks(summary.tasks);
+    renderTasks(summary.pendingTasks, summary.completedTasks.length);
+    renderDone(summary.completedTasks);
     renderDebts(summary.debts);
     renderExpenses(summary.expenses);
     renderResidents(summary.residents);
@@ -626,6 +709,9 @@
   $('#reset-data').addEventListener('click', function () {
     if (!window.confirm('Удалить всех жильцов, обязанности и расходы? Это действие нельзя отменить.')) return;
     if (attempt(function () { store.reset(); })) {
+      view.showDone = false;
+      view.doneLimit = config.UI.DONE_TASKS_PAGE;
+      view.showAllExpenses = false;
       if (store.getMode() !== 'memory') hideBanner();
       if (history.state && history.state.roomsplit) history.replaceState(null, '');
       goSetup();

@@ -22,6 +22,20 @@
     return problems;
   }
 
+  /**
+   * Сохраняет время выполнения (для истории выполненных дел):
+   * при переходе в completed ставит completedAt, при возврате в pending убирает.
+   */
+  function withStatus(task, status) {
+    const next = Object.assign({}, task, { status: status });
+    if (status === config.TASK_STATUS.COMPLETED) {
+      if (task.status !== config.TASK_STATUS.COMPLETED || !task.completedAt) next.completedAt = new Date().toISOString();
+    } else {
+      delete next.completedAt;
+    }
+    return next;
+  }
+
   function replaceTask(state, task) {
     return Object.assign({}, state, {
       tasks: state.tasks.map(function (t) { return t.id === task.id ? task : t; }),
@@ -41,13 +55,13 @@
     const status = data.status === undefined ? config.TASK_STATUS.PENDING : data.status;
     errors.throwIfAny(collectTaskErrors(state, title, data.assigneeId, status));
 
-    const task = {
+    const task = withStatus({
       id: stateModule.generateId('task'),
       title: title,
       assigneeId: data.assigneeId,
-      status: status,
+      status: config.TASK_STATUS.PENDING,
       createdAt: new Date().toISOString(),
-    };
+    }, status);
     return { state: Object.assign({}, state, { tasks: state.tasks.concat([task]) }), task: task };
   }
 
@@ -60,7 +74,7 @@
     const status = data.status === undefined ? current.status : data.status;
     errors.throwIfAny(collectTaskErrors(state, title, assigneeId, status));
 
-    const task = Object.assign({}, current, { title: title, assigneeId: assigneeId, status: status });
+    const task = withStatus(Object.assign({}, current, { title: title, assigneeId: assigneeId }), status);
     return { state: replaceTask(state, task), task: task };
   }
 
@@ -68,7 +82,7 @@
   function updateTaskStatus(state, id, status) {
     const current = requireTask(state, id);
     if (STATUSES.indexOf(status) === -1) throw new errors.AppError('INVALID_STATUS');
-    const task = Object.assign({}, current, { status: status });
+    const task = withStatus(current, status);
     return { state: replaceTask(state, task), task: task };
   }
 

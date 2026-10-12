@@ -30,6 +30,12 @@
     MAX_AMOUNT_KOPECKS: 1000000000,
   });
 
+  /** Сколько записей показывать на главной, чтобы экран не рос бесконечно. */
+  const UI = Object.freeze({
+    EXPENSES_PREVIEW: 5,
+    DONE_TASKS_PAGE: 10,
+  });
+
   /**
    * Коды ошибок из ТЗ (раздел 3.1) и несколько дополнительных,
    * появившихся из-за функций сверх ТЗ (удаление расхода и жильца).
@@ -69,6 +75,7 @@
     TASK_STATUS: TASK_STATUS,
     TASK_STATUS_LABELS: TASK_STATUS_LABELS,
     LIMITS: LIMITS,
+    UI: UI,
     ERRORS: ERRORS,
   });
 });

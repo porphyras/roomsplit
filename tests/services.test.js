@@ -205,3 +205,39 @@ test('getSummary: обязанности (сначала невыполненн�
   assert.deepEqual(summary.totals, { pendingTasks: 2, completedTasks: 1, expensesKopecks: 300000 });
   assert.equal(summary.expenses[0].payerName, 'Артём');
 });
+
+// ---------- История выполненных ----------
+
+test('completedAt ставится при выполнении и снимается при возврате в работу', () => {
+  let state = stateWithResidents();
+  const created = taskService.createTask(state, { title: 'Мусор', assigneeId: MAXIM.id });
+  assert.equal(created.task.completedAt, undefined);
+
+  let r = taskService.updateTaskStatus(created.state, created.task.id, 'completed');
+  assert.ok(!Number.isNaN(Date.parse(r.task.completedAt)));
+  const firstDone = r.task.completedAt;
+
+  // Правка названия выполненной задачи не меняет время выполнения.
+  r = taskService.updateTask(r.state, created.task.id, { title: 'Вынести мусор' });
+  assert.equal(r.task.completedAt, firstDone);
+
+  r = taskService.updateTaskStatus(r.state, created.task.id, 'pending');
+  assert.equal('completedAt' in r.task, false);
+
+  const direct = taskService.createTask(state, { title: 'Сразу готово', assigneeId: ARTEM.id, status: 'completed' });
+  assert.ok(direct.task.completedAt);
+});
+
+test('getSummary: невыполненные отдельно, история — последние выполненные сверху', () => {
+  const state = stateWithResidents();
+  state.tasks = [
+    { id: 't1', title: 'Старая', assigneeId: ARTEM.id, status: 'completed', createdAt: '2026-10-01T10:00:00.000Z', completedAt: '2026-10-02T10:00:00.000Z' },
+    { id: 't2', title: 'В работе', assigneeId: MAXIM.id, status: 'pending', createdAt: '2026-10-03T10:00:00.000Z' },
+    { id: 't3', title: 'Свежая', assigneeId: NIKITA.id, status: 'completed', createdAt: '2026-10-01T09:00:00.000Z', completedAt: '2026-10-05T10:00:00.000Z' },
+    { id: 't4', title: 'Без даты выполнения', assigneeId: ARTEM.id, status: 'completed', createdAt: '2026-10-04T10:00:00.000Z' },
+  ];
+  const summary = getSummary(state);
+  assert.deepEqual(summary.pendingTasks.map((t) => t.id), ['t2']);
+  assert.deepEqual(summary.completedTasks.map((t) => t.id), ['t3', 't4', 't1']);
+  assert.equal(summary.tasks.length, 4);
+});

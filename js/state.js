@@ -65,6 +65,7 @@
       taskIds.add(t.id);
       const task = { id: t.id, title: t.title, assigneeId: t.assigneeId, status: t.status };
       if (typeof t.createdAt === 'string') task.createdAt = t.createdAt;
+      if (typeof t.completedAt === 'string') task.completedAt = t.completedAt;
       return task;
     });
 

@@ -17,13 +17,23 @@
     return resident ? resident.name : '—';
   }
 
-  /** getSummary(state) → { tasks, debts, expenses, residents, totals } */
+  /**
+   * getSummary(state) → { tasks, pendingTasks, completedTasks, debts, expenses, residents, totals }
+   * tasks — все задачи (сначала невыполненные), pendingTasks — для главного экрана,
+   * completedTasks — история выполненных, новые сверху.
+   */
   function getSummary(state) {
     const pending = [];
     const completed = [];
     state.tasks.forEach(function (task) {
       const view = Object.assign({}, task, { assigneeName: nameOf(state, task.assigneeId) });
       (task.status === config.TASK_STATUS.COMPLETED ? completed : pending).push(view);
+    });
+
+    // История: последние выполненные сверху (у старых записей без completedAt — по дате создания).
+    const doneAt = function (task) { return task.completedAt || task.createdAt || ''; };
+    const history = completed.slice().sort(function (a, b) {
+      return doneAt(a) < doneAt(b) ? 1 : doneAt(a) > doneAt(b) ? -1 : 0;
     });
 
     const debts = debtCalculator.calculateDebts(state.expenses, state.residents).map(function (debt) {
@@ -46,6 +56,8 @@
     return {
       residents: state.residents.slice(),
       tasks: pending.concat(completed),
+      pendingTasks: pending,
+      completedTasks: history,
       debts: debts,
       expenses: expenses,
       totals: {

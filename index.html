@@ -71,36 +71,54 @@
           </div>
         </div>
 
-        <div class="grid">
-          <section class="card" aria-labelledby="tasks-title">
-            <h2 id="tasks-title" class="card__title">Обязанности</h2>
-            <ul id="task-list" class="list"></ul>
-            <p id="task-empty" class="empty">Обязанностей пока нет. Нажмите «+ Обязанность», чтобы добавить первую.</p>
-          </section>
+        <div class="board">
+          <div class="board__col">
+            <section class="card" aria-labelledby="tasks-title">
+              <h2 id="tasks-title" class="card__title">Обязанности</h2>
+              <ul id="task-list" class="list"></ul>
+              <p id="task-empty" class="empty">Обязанностей пока нет. Нажмите «+ Обязанность», чтобы добавить первую.</p>
+              <p id="task-all-done" class="empty" hidden>Все дела сделаны. Новые — через «+ Обязанность».</p>
 
-          <section class="card" aria-labelledby="debts-title">
-            <h2 id="debts-title" class="card__title">Долги</h2>
-            <ul id="debt-list" class="list"></ul>
-            <p id="debt-empty" class="empty">Долгов нет — все в расчёте.</p>
-          </section>
+              <div id="done-block" class="history" hidden>
+                <button id="done-toggle" type="button" class="history__toggle" aria-expanded="false" aria-controls="done-panel">
+                  <span>Выполненные</span>
+                  <span id="done-count" class="count"></span>
+                  <svg class="history__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </button>
+                <div id="done-panel" hidden>
+                  <ul id="done-list" class="list"></ul>
+                  <button id="done-more" type="button" class="show-more" hidden></button>
+                </div>
+              </div>
+            </section>
+          </div>
 
-          <section class="card" aria-labelledby="expenses-title">
-            <h2 id="expenses-title" class="card__title">Расходы</h2>
-            <ul id="expense-list" class="list"></ul>
-            <p id="expense-empty" class="empty">Расходов пока нет. Нажмите «+ Расход», когда кто-то оплатит общую покупку.</p>
-          </section>
+          <div class="board__col">
+            <section class="card" aria-labelledby="debts-title">
+              <h2 id="debts-title" class="card__title">Долги</h2>
+              <ul id="debt-list" class="list"></ul>
+              <p id="debt-empty" class="empty">Долгов нет — все в расчёте.</p>
+            </section>
 
-          <section class="card" aria-labelledby="residents-title">
-            <h2 id="residents-title" class="card__title">Жильцы</h2>
-            <ul id="resident-list" class="chips" aria-label="Жильцы"></ul>
-            <form id="main-resident-form" class="inline-form" novalidate autocomplete="off">
-              <label class="visually-hidden" for="main-name">Имя нового жильца</label>
-              <input id="main-name" name="name" type="text" placeholder="Новый жилец" maxlength="40" aria-describedby="main-name-error">
-              <button type="submit" class="btn btn--secondary">Добавить</button>
-              <p id="main-name-error" class="field-error" data-error-for="name"></p>
-            </form>
-            <p class="hint">Удалить можно только жильца без обязанностей и расходов.</p>
-          </section>
+            <section class="card" aria-labelledby="expenses-title">
+              <h2 id="expenses-title" class="card__title">Расходы</h2>
+              <ul id="expense-list" class="list"></ul>
+              <p id="expense-empty" class="empty">Расходов пока нет. Нажмите «+ Расход», когда кто-то оплатит общую покупку.</p>
+              <button id="expenses-more" type="button" class="show-more" aria-expanded="false" hidden></button>
+            </section>
+
+            <section class="card" aria-labelledby="residents-title">
+              <h2 id="residents-title" class="card__title">Жильцы</h2>
+              <ul id="resident-list" class="chips" aria-label="Жильцы"></ul>
+              <form id="main-resident-form" class="inline-form" novalidate autocomplete="off">
+                <label class="visually-hidden" for="main-name">Имя нового жильца</label>
+                <input id="main-name" name="name" type="text" placeholder="Новый жилец" maxlength="40" aria-describedby="main-name-error">
+                <button type="submit" class="btn btn--secondary">Добавить</button>
+                <p id="main-name-error" class="field-error" data-error-for="name"></p>
+              </form>
+              <p class="hint">Удалить можно только жильца без обязанностей и расходов.</p>
+            </section>
+          </div>
         </div>
       </section>
 
