@@ -3,6 +3,7 @@
 **Обязанности и общие расходы — в одном месте.**
 
 ### 👉 Открыть приложение: **https://puoku.github.io/roomsplit/**
+### 📖 [Инструкция пользователя](docs/USER_MANUAL.md)
 
 [![Tests & Deploy](https://github.com/puoku/roomsplit/actions/workflows/ci.yml/badge.svg)](https://github.com/puoku/roomsplit/actions/workflows/ci.yml)
 
@@ -156,5 +157,6 @@ npm start          # http://localhost:8080
 
 ## Документация
 
+- [Инструкция пользователя](docs/USER_MANUAL.md): пошагово, со скриншотами, ошибки и FAQ
 - [Бизнес-гипотеза](docs/RoomSplit_Бизнес-гипотеза.docx)
 - [Архитектура и ТЗ](docs/RoomSplit_Чек-лист_архитектура_Участник_2.docx)
