@@ -1,5 +1,14 @@
 # RoomSplit
 
+> **English summary.** A web app for flatmates: shared chores, shared expenses and automatic
+> "who owes whom" calculation, with debts recomputed across all expenses down to the kopeck.
+> No sign-up or server: the state lives in the browser's LocalStorage.
+> Plain HTML/CSS/JavaScript, about 1,000 lines of `node --test` tests, CI and deployment to GitHub Pages.
+> **Live demo:** https://puoku.github.io/roomsplit/
+>
+> **My role.** A team project from a university course. I wrote all of the code, designed the MVP
+> architecture and wrote the technical specification ([docs](docs/)).
+
 **Обязанности и общие расходы — в одном месте.**
 
 ### 👉 Открыть приложение: **https://puoku.github.io/roomsplit/**
