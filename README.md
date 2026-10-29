@@ -4,17 +4,17 @@
 > "who owes whom" calculation, with debts recomputed across all expenses down to the kopeck.
 > No sign-up or server: the state lives in the browser's LocalStorage.
 > Plain HTML/CSS/JavaScript, about 1,000 lines of `node --test` tests, CI and deployment to GitHub Pages.
-> **Live demo:** https://puoku.github.io/roomsplit/
+> **Live demo:** https://porphyras.github.io/roomsplit/
 >
 > **My role.** A team project from a university course. I wrote all of the code, designed the MVP
 > architecture and wrote the technical specification ([docs](docs/)).
 
 **Обязанности и общие расходы — в одном месте.**
 
-### 👉 Открыть приложение: **https://puoku.github.io/roomsplit/**
+### 👉 Открыть приложение: **https://porphyras.github.io/roomsplit/**
 ### 📖 [Инструкция пользователя](docs/USER_MANUAL.md)
 
-[![Tests & Deploy](https://github.com/puoku/roomsplit/actions/workflows/ci.yml/badge.svg)](https://github.com/puoku/roomsplit/actions/workflows/ci.yml)
+[![Tests & Deploy](https://github.com/porphyras/roomsplit/actions/workflows/ci.yml/badge.svg)](https://github.com/porphyras/roomsplit/actions/workflows/ci.yml)
 
 RoomSplit — веб-приложение для людей, которые живут вместе. Оно помогает распределять домашние обязанности, учитывать общие покупки и автоматически считает, кто кому сколько должен. Не нужны ни регистрация, ни установка: открываете ссылку и пользуетесь.
 
@@ -24,7 +24,7 @@ RoomSplit — веб-приложение для людей, которые жи
 
 ## Как проверить за 2 минуты
 
-1. Откройте [ссылку на приложение](https://puoku.github.io/roomsplit/).
+1. Откройте [ссылку на приложение](https://porphyras.github.io/roomsplit/).
 2. **Быстрый вариант:** нажмите «Посмотреть на демо-данных» — появится квартира из бизнес-гипотезы (Артём, Максим, Никита) с обязанностями, расходами, долгами и одним частичным погашением.
 3. **Сценарий демонстрации из ТЗ (п. 5.3):**
    1. добавьте жильцов: Артём, Максим, Никита → «Продолжить»;
